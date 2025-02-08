@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { Algorithm } from 'jsonwebtoken';
 
 config();
 
@@ -11,10 +12,10 @@ export const JWT_ACCESS_TOKEN_EXPIRATION = parseInt(
 export const JWT_REFRESH_TOKEN_EXPIRATION = parseInt(
   process.env.JWT_REFRESH_TOKEN_EXPIRATION as string,
 );
-export const JWT_AUTH_HEADERS = (process.env.JWT_AUTH_HEADER as string).split(
+export const JWT_AUTH_HEADERS = (process.env.JWT_AUTH_HEADERS as string).split(
   ' ',
 );
-export const JWT_ALGORITHM = process.env.JWT_ALGORITHM as string;
+export const JWT_ALGORITHM: Algorithm = process.env.JWT_ALGORITHM as Algorithm;
 
 // Database
 export const DB_CONNECTION_STRING = process.env.DB_CONNECTION_STRING as string;

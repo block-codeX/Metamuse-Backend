@@ -3,8 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { BlacklistAccess, BlacklistRefresh } from './auth.schema';
 import { ForbiddenError, IntegrityError, UnauthorizedError, ValidationError } from '@app/utils';
-import { JWT_VERIFYING_KEY, JWT_ALGORITHM, JWT_SIGNING_KEY, JWT_REFRESH_TOKEN_EXPIRATION, JWT_ACCESS_TOKEN_EXPIRATION } from './auth.constants';
-import jwt from 'jsonwebtoken'
+import { JWT_VERIFYING_KEY, JWT_ALGORITHM, JWT_SIGNING_KEY, JWT_REFRESH_TOKEN_EXPIRATION, JWT_ACCESS_TOKEN_EXPIRATION, JWT_AUTH_HEADERS } from './auth.constants';
+import { JwtService } from '@nestjs/jwt';
+import { UsersService } from 'src/users/users.service';
 interface AuthTokenResponse {
     accessToken: string
     userId: string
@@ -19,6 +20,8 @@ export class AuthService {
     constructor(
         @InjectModel(BlacklistAccess.name) private blacklistAccessModel: Model<BlacklistAccess>,
         @InjectModel(BlacklistRefresh.name) private blacklistRefreshModel: Model<BlacklistRefresh>,
+        private userService: UsersService,
+        private jwtService: JwtService
     ) { }
 
     async blacklistToken(token: string, model: 'access' | 'refresh'): Promise<void> {
@@ -59,20 +62,20 @@ export class AuthService {
           iat: Math.floor(Date.now() / 1000) // current time in seconds since the epoch
         }
       
-        const accessToken = jwt.sign(
+        const accessToken = await this.jwtService.signAsync(
           { ...payload, type: 'access' },
-          JWT_SIGNING_KEY as jwt.Secret,
           {
+            secret: JWT_SIGNING_KEY,
             expiresIn: JWT_ACCESS_TOKEN_EXPIRATION,
-            algorithm: JWT_ALGORITHM as jwt.Algorithm
+            algorithm: JWT_ALGORITHM
           }
         )
-        const refreshToken = jwt.sign(
+        const refreshToken = await this.jwtService.signAsync(
           { ...payload, type: 'refresh' },
-          JWT_SIGNING_KEY as jwt.Secret,
           {
+            secret: JWT_SIGNING_KEY,
             expiresIn: JWT_REFRESH_TOKEN_EXPIRATION,
-            algorithm: JWT_ALGORITHM as jwt.Algorithm
+            algorithm: JWT_ALGORITHM
           }
         )
       
@@ -86,22 +89,24 @@ export class AuthService {
           refresh_exp: new Date(refreshTokenExpiry * 1000).toISOString()
         }
       }
-      
       async refreshTokens (oldRefreshToken: string): Promise<AuthTokenResponse> {
         try {
           if (await this.isTokenBlacklisted(oldRefreshToken, 'refresh')) {
             throw new ForbiddenError('Token blacklisted')
           }
-          const decoded = jwt.verify(
+          const decoded = this.jwtService.verify(
             oldRefreshToken,
-            JWT_VERIFYING_KEY as jwt.Secret,
-            { algorithms: [JWT_ALGORITHM as jwt.Algorithm] }
-          ) as jwt.JwtPayload
+            {
+              secret: JWT_VERIFYING_KEY,
+              algorithms: [JWT_ALGORITHM],
+              maxAge: JWT_REFRESH_TOKEN_EXPIRATION,
+              ignoreExpiration: false
+            }
+          )
           if (decoded.type !== 'refresh') {
             throw new ForbiddenError('Invalid token type')
           }
-          let user;
-        //   const user = await getUser(Types.ObjectId.createFromHexString(decoded.sub ?? ''))
+          const user = await this.userService.getUser(Types.ObjectId.createFromHexString(decoded.sub ?? ''))
           if (user == null) {
             throw new ForbiddenError('User not found')
           }

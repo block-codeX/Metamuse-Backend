@@ -13,6 +13,11 @@ export class User {
     email: string;
     @Prop({ required: true, minlength: 6})
     password: string;
+    @Prop({ required: true, default: Date.now })
+    createdAt: Date;
+    @Prop({ required: true, default: Date.now })
+    lastAuthChange: Date;
+
 }
 export const UserSchema =
     SchemaFactory.createForClass(User);
