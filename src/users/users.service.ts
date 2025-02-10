@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
+import { FilterQuery, Model, MongooseError, SortOrder, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './users.schema';
 import {
+  IntegrityError,
   NotFoundError,
   PaginatedDocs,
   UnauthorizedError,
@@ -33,12 +34,26 @@ export class UsersService {
     }
     return user;
   }
-  async signupUser({ firstName, lastName, email, password }: UserParams): Promise<User> {
-    const user = await this.userModel.create({
-      firstName, lastName, email,
-      password: encryptPassword(password),
-    });
-    return user;
+  async signupUser({
+    firstName,
+    lastName,
+    email,
+    password,
+  }: UserParams): Promise<User> {
+    try {
+      const user = await this.userModel.create({
+        firstName,
+        lastName,
+        email,
+        password: encryptPassword(password),
+      });
+      return user;
+    } catch (error) {
+      if (error && error.code === 11000) {
+        throw new IntegrityError('Email already exists');
+      }
+      throw error;
+    }
   }
 
   async getUsers({
@@ -54,11 +69,7 @@ export class UsersService {
     order: SortOrder;
     sortField: string;
   }): Promise<PaginatedDocs<User>> {
-    const fieldsToExclude = [
-      '-password',
-      '-lastAuthChange',
-      '-__v',
-    ];
+    const fieldsToExclude = ['-password', '-lastAuthChange', '-__v'];
     return await paginate(
       this.userModel,
       filters,
