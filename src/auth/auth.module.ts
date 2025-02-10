@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import { AuthService, OTPService } from './auth.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   BlacklistAccess,
   BlacklistAccessSchema,
   BlacklistRefresh,
   BlacklistRefreshSchema,
+  OTP,
+  OTPSchema,
 } from './auth.schema';
 import { UsersModule } from 'src/users/users.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -14,8 +16,8 @@ import {
   JWT_ACCESS_TOKEN_EXPIRATION,
   JWT_ALGORITHM,
   JWT_SIGNING_KEY,
-} from './auth.constants';
-import { AuthGuard } from './auth.guard';
+} from '@app/utils';
+import { AuthGuard, OTPRequired } from './auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 
 @Module({
@@ -23,12 +25,13 @@ import { APP_GUARD } from '@nestjs/core';
     MongooseModule.forFeature([
       { name: BlacklistAccess.name, schema: BlacklistAccessSchema },
       { name: BlacklistRefresh.name, schema: BlacklistRefreshSchema },
+      { name: OTP.name, schema: OTPSchema },
     ]),
     UsersModule,
     JwtModule.register({
       global: true,
       secret: JWT_SIGNING_KEY,
-      signOptions: { 
+      signOptions: {
         algorithm: JWT_ALGORITHM,
         expiresIn: JWT_ACCESS_TOKEN_EXPIRATION,
       },
@@ -40,10 +43,18 @@ import { APP_GUARD } from '@nestjs/core';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, {
-    provide: APP_GUARD,
-    useClass: AuthGuard,
-  }],
-  exports: [AuthService, MongooseModule],
+  providers: [
+    AuthService,
+    OTPService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: OTPRequired,
+    },
+  ],
+  exports: [AuthService, OTPService, MongooseModule],
 })
 export class AuthModule {}

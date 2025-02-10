@@ -49,7 +49,7 @@ export class UsersService {
       });
       return user;
     } catch (error) {
-      if (error && error.code === 11000) {
+      if (error && error?.code === 11000) {
         throw new IntegrityError('Email already exists');
       }
       throw error;
@@ -78,8 +78,11 @@ export class UsersService {
     );
   }
 
-  async getUser(id: Types.ObjectId): Promise<User> {
-    const user = await this.userModel.findOne({ _id: id });
+  async getUser(id: Types.ObjectId | null, query: any = {}): Promise<User> {
+    if (id) {
+      query._id = id; 
+    }
+    const user = await this.userModel.findOne(query);
     if (user == null) throw new NotFoundError('User not found');
     return user;
   }

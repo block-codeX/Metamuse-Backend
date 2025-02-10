@@ -9,24 +9,27 @@ import {
   BadRequestException,
   ConflictException,
   UsePipes,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
-import { AuthService } from './auth.service';
+import { AuthService, OTPService } from './auth.service';
 import { AllowAny } from './auth.decorator';
 import {
+  ForbiddenError,
   IntegrityError,
   NotFoundError,
   UnauthorizedError,
   ValidationError,
   ZodValidationPipe,
 } from '@app/utils';
-import { LoginDto, loginSchema, LogoutDto, logoutSchema, SignupDto, signupSchema } from './auth.dto';
+import { LoginDto, loginSchema, LogoutDto, logoutSchema, OtpRequestDto, otpRequestSchema, SignupDto, signupSchema } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly usersService: UsersService,
+    private readonly otpservice: OTPService,
   ) {}
 
   @AllowAny()
@@ -63,6 +66,25 @@ export class AuthController {
     }
   }
 
+  @AllowAny()
+  @HttpCode(200)
+  @Post('refresh')
+  @UsePipes(new ZodValidationPipe(logoutSchema))
+  async refresh(@Body() body: LogoutDto): Promise<any> {
+    try {
+      const tokens = await this.authService.refreshTokens(body.token);
+      return tokens;
+    } catch (error) {
+      if (error instanceof ForbiddenError)
+        throw new ForbiddenException(error.message);
+      else if (error instanceof UnauthorizedError)
+        throw new UnauthorizedException(error.message);
+      else if (error instanceof IntegrityError)
+        throw new ConflictException(error.message);
+      else throw new BadRequestException(error.message);
+    }
+  }
+
   @Post('logout')
   @UsePipes(new ZodValidationPipe(logoutSchema))
   async logout(@Request() req, @Body() body: LogoutDto): Promise<any> {
@@ -78,6 +100,37 @@ export class AuthController {
       else throw new BadRequestException(error.message);
     }
   }
+
+  async verifyAccount() {
+    // Verify account
+  }
+
+  async forgotPassword() {
+    // Forgot password
+  }
+
+  @AllowAny()
+  @Post('otp/request')
+  @UsePipes(new ZodValidationPipe(otpRequestSchema))
+  async requestOTP(@Request() req, @Body() body: OtpRequestDto): Promise<any> {
+    try {
+      const email = body.email;
+      const user: any = await this.usersService.getUser(null, { email });
+      const otp = await this.otpservice.createOTP(user._id, body.otpType, body.multiUse);
+      console.log(otp);
+      return { message: 'OTP sent successfully' };
+    }
+    catch (error) {
+      if (error instanceof UnauthorizedError)
+        throw new UnauthorizedException(error.message);
+      else throw new BadRequestException(error.message);
+    }
+  }
+  async verifyOTP() {
+    // Verify OTP
+  }
+
+
   @Post('profile')
   async profile(@Request() req): Promise<any> {
     return req.user.select('-password, -lastAuthChange, -__v').toObject();

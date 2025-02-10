@@ -11,12 +11,14 @@ import {
   JWT_ALGORITHM,
   JWT_AUTH_HEADERS,
   JWT_VERIFYING_KEY,
-} from './auth.constants';
+  UnauthorizedError,
+} from '@app/utils';
 import { Types } from 'mongoose';
-import { AuthService } from './auth.service';
+import { AuthService, OTPService } from './auth.service';
 import { UsersService } from 'src/users/users.service';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from './auth.decorator';
+import { otpSchema } from './auth.dto';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -70,5 +72,36 @@ export class AuthGuard implements CanActivate {
       return undefined;
     }
     return token;
+  }
+}
+
+
+@Injectable()
+export class OTPRequired implements CanActivate {
+  constructor(
+    private otpservice: OTPService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const otpData = request.body.otpData;
+    try {
+      otpSchema.parse(otpData);
+    } catch (error) {
+      throw new UnauthorizedException("Invalid OTP data", error.errors);
+    }
+    if (!otpData) {
+      throw new UnauthorizedException("No otp provided");
+    }
+    try {
+      await this.otpservice.verifyOTP(otpData);
+      return true;
+    }
+    catch (error) {
+      if (error instanceof UnauthorizedError) {
+        throw new UnauthorizedException(error.message);
+      }
+      throw new UnauthorizedException("Invalid or expired OTP");
+    }
   }
 }

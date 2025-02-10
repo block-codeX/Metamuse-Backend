@@ -17,6 +17,9 @@ export const JWT_AUTH_HEADERS = (process.env.JWT_AUTH_HEADERS as string).split(
 );
 export const JWT_ALGORITHM: Algorithm = process.env.JWT_ALGORITHM as Algorithm;
 
+// OTP
+export const OTP_EXPIRATION = parseInt(process.env.OTP_EXPIRATION as string);
+export const OTP_LENGTH = parseInt(process.env.OTP_LENGTH as string);
 // Database
 export const DB_CONNECTION_STRING = process.env.DB_CONNECTION_STRING as string;
 
