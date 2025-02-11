@@ -19,6 +19,8 @@ export class User {
     @Prop({ required: true, default: Date.now })
     lastAuthChange: Date;
 
+    @Prop({ default: "unverified"}) // unverified, active, banned, deactivated
+    status: string;
 }
 export const UserSchema =
     SchemaFactory.createForClass(User);

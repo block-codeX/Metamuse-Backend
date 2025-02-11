@@ -10,6 +10,7 @@ import {
   ConflictException,
   UsePipes,
   ForbiddenException,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { AuthService, OTPService } from './auth.service';
@@ -23,6 +24,7 @@ import {
   ZodValidationPipe,
 } from '@app/utils';
 import { LoginDto, loginSchema, LogoutDto, logoutSchema, OtpRequestDto, otpRequestSchema, SignupDto, signupSchema } from './auth.dto';
+import { OTPRequired } from './auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -56,9 +58,8 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(signupSchema))
   async signup(@Body() body: SignupDto): Promise<any> {
     try {
-      const user = await this.usersService.signupUser(body);
-      const tokens = await this.authService.getTokens(user);
-      return tokens;
+      await this.usersService.signupUser(body);
+      return { message: 'Signup successful, Proceed to verify your account'}
     } catch (error) {
       if (error instanceof IntegrityError)
         throw new ConflictException(error.message, error.name);
@@ -101,18 +102,55 @@ export class AuthController {
     }
   }
 
-  async verifyAccount() {
-    // Verify account
+  @AllowAny()
+  @UseGuards(OTPRequired)
+  @Post('account/verify')
+  async verifyAccount(@Request() req, @Body() body: any): Promise<any> {
+    try {
+      const email = body.email;
+      const user: any = await this.usersService.getUser(null, { email });
+      if (req.otpRecord && req.otpRecord.userId != user._id) {
+        throw new UnauthorizedError("You're not permitted to carry this out. Request a new otp");
+      }
+      if (user.isVerified) {
+        throw new UnauthorizedError('Account already verified');
+      }
+      user.isVerified = true;
+      await user.save();
+      return { message: 'Account verified successfully..Proceed to log in' };
+    } catch (error) {
+      if (error instanceof UnauthorizedError)
+        throw new UnauthorizedException(error.message);
+      else throw new BadRequestException(error.message);
+    }
   }
 
-  async forgotPassword() {
-    // Forgot password
+  @AllowAny()
+  @UseGuards(OTPRequired)
+  @Post('password/reset')
+  async resetPassword(@Request() req, @Body() body: any): Promise<any> {
+    try {
+      const email = body.email;
+      const user: any = await this.usersService.getUser(null, { email });
+      if (req.otpRecord && req.otpRecord.userId != user._id) {
+        throw new UnauthorizedError("You're not permitted to carry this out. Request a new otp");
+      }
+      const password = body.password;
+      await this.usersService.updateUser(user._id, { password });
+      return { message: 'Password reset successfully' };
+    } catch (error) {
+      if (error instanceof UnauthorizedError)
+        throw new UnauthorizedException(error.message);
+      if (error instanceof NotFoundError)
+        throw new NotFoundException(error.message);
+      else throw new BadRequestException(error.message);
+    }
   }
 
   @AllowAny()
   @Post('otp/request')
   @UsePipes(new ZodValidationPipe(otpRequestSchema))
-  async requestOTP(@Request() req, @Body() body: OtpRequestDto): Promise<any> {
+  async requestOTP(@Body() body: OtpRequestDto): Promise<any> {
     try {
       const email = body.email;
       const user: any = await this.usersService.getUser(null, { email });
@@ -126,11 +164,22 @@ export class AuthController {
       else throw new BadRequestException(error.message);
     }
   }
-  async verifyOTP() {
+
+  @AllowAny()
+  @Post('otp/verify')
+  @UsePipes(new ZodValidationPipe(otpRequestSchema))
+  async verifyOTP(@Body() body: OtpRequestDto): Promise<any> {
+    try {
+      await this.otpservice.verifyOTP(body);
+      return { message: 'OTP verified successfully' };
+    }
+    catch (error) {
+      if (error instanceof UnauthorizedError)
+        throw new UnauthorizedException(error.message);
+      else throw new BadRequestException(error.message);
+    }
     // Verify OTP
   }
-
-
   @Post('profile')
   async profile(@Request() req): Promise<any> {
     return req.user.select('-password, -lastAuthChange, -__v').toObject();

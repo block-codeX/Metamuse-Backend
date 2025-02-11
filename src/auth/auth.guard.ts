@@ -58,6 +58,8 @@ export class AuthGuard implements CanActivate {
       const user = await this.userService.getUser(
         Types.ObjectId.createFromHexString(decoded.sub ?? ''),
       );
+      if (user.status !== "active")
+        throw new UnauthorizedException(`User is ${user.status}`);
       request['user'] = user
       request['token'] = token;
     } catch {
@@ -94,7 +96,8 @@ export class OTPRequired implements CanActivate {
       throw new UnauthorizedException("No otp provided");
     }
     try {
-      await this.otpservice.verifyOTP(otpData);
+      const otpRecord = await this.otpservice.useOTP(otpData);
+      request['otpRecord'] = otpRecord;
       return true;
     }
     catch (error) {

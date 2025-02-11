@@ -165,16 +165,13 @@ export class OTPService {
   ): Promise<OTP> {
     const otp = this.generateOTP();
     const hashedOTP = encryptPassword(otp);
-    const obj: any = { userId, otpType, otp: hashedOTP };
-    if (multiUse) {
-      const verificationToken = this.generateOTP();
-      obj.verificationToken = encryptPassword(verificationToken);
-    }
+    const verificationToken = this.generateOTP();
+    const obj: any = { userId, otpType, otp: hashedOTP, verificationToken, multiUse };
     const record = await this.otpModel.create(obj);
     return record;
   }
 
-  async verifyOTP({ otpId, otpType, verificationToken, otp }: OTPVerifyParams): Promise<void> {
+  async verifyOTP({ otpId, otpType, otp }: Partial<OTPVerifyParams>): Promise<void> {
     const otpRecord = await this.otpModel.findOne({
       otpId,
       otpType,
@@ -186,13 +183,32 @@ export class OTPService {
       throw new UnauthorizedError('OTP already used');
     }
     if (otp && verifyPassword(otp, otpRecord.hashedOTP)) {
-      otpRecord.isUsed = true;
+      otpRecord.isVerified = true;
       await otpRecord.save();
-      return;
-    }
-    if (verificationToken && verifyPassword(verificationToken, (otpRecord.verificationToken) as string)) {
       return;
     }
     throw new UnauthorizedError('Invalid OTP');
   }
+
+  async useOTP({ otpId, otpType, verificationToken }: Partial<OTPVerifyParams>): Promise<OTP> {
+    const otpRecord = await this.otpModel.findOne({
+      otpId,
+      otpType,
+    });
+    if (!otpRecord) {
+      throw new UnauthorizedError('Otp not found. It must have expired');
+    }
+    if (otpRecord.isUsed) {
+      throw new UnauthorizedError('OTP already used');
+    }
+    if (verificationToken && verifyPassword(verificationToken, (otpRecord.verificationToken) as string)) {
+      if (!otpRecord.multiUse) {
+        otpRecord.isUsed = true;
+      }
+      await otpRecord.save();
+      return otpRecord;
+    }
+    throw new UnauthorizedError('OTP verification failed');
+  }
+
 }

@@ -42,6 +42,12 @@ export class OTP {
   @Prop({ default: false })
   isUsed: boolean;
   
+  @Prop({ default: false })
+  isVerified: boolean;
+
+  @Prop({ default: false })
+  multiUse: boolean;
+
   @Prop({ enum: ['EMAIL', 'AUTHENTICATOR'], default: 'EMAIL' })
   otpType: string;
   
