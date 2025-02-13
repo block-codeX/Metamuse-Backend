@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { NotFoundError } from '@app/utils';
 import { FilterQuery, Types } from 'mongoose';
@@ -47,6 +47,7 @@ export class UsersController {
 
         }
     }
+    @Get('all')
     async getUsers(@Query() query: GetUsersQuery) {
         try {
             const { firstName, lastName, email, page = 1, limit = 10 } = query;
