@@ -1,3 +1,5 @@
+/* The AuthController class in this TypeScript code handles authentication and user account
+verification operations with error handling for various scenarios. */
 import {
   Body,
   Controller,
@@ -11,6 +13,7 @@ import {
   UsePipes,
   ForbiddenException,
   UseGuards,
+  Get,
 } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { AuthService, OTPService } from './auth.service';
@@ -180,7 +183,7 @@ export class AuthController {
     }
     // Verify OTP
   }
-  @Post('profile')
+  @Get('profile')
   async profile(@Request() req): Promise<any> {
     return req.user.select('-password, -lastAuthChange, -__v').toObject();
   }
