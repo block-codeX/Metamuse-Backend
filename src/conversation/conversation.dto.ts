@@ -5,6 +5,7 @@ export interface ICreateConversation {
     isGroup?: boolean;
     creator: Types.ObjectId;
     members?: Types.ObjectId[];
+    admins?: Types.ObjectId[];
   }
   
 export class CreateMessagingDto {
