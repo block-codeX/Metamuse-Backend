@@ -34,6 +34,18 @@ export class ConversationService {
     return await this.conversationModel.create(input_data);
   }
 
+  async converse(first: Types.ObjectId, second: Types.ObjectId) {
+    const conversation = await this.conversationModel.findOne({
+      members: { $all: [first, second] },
+    });
+    if (conversation) return conversation;
+    return await this.create({
+      creator: first,
+      isGroup: false,
+      members: [first, second],
+    });
+  }
+
   async findAll({
     filters = {},
     page = 1,
@@ -57,7 +69,7 @@ export class ConversationService {
   }
 
   async findOne(id: Types.ObjectId) {
-    const conversation = await this.conversationModel.findById(id);
+    const conversation = await this.conversationModel.findById(id).populate('members', 'admins');
     if (conversation == null) throw new NotFoundError('Conversation not found');
     return conversation;
   }

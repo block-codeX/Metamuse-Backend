@@ -4,6 +4,7 @@ export interface ICreateConversation {
     name?: string;
     isGroup?: boolean;
     creator: Types.ObjectId;
+    members?: Types.ObjectId[];
   }
   
 export class CreateMessagingDto {
