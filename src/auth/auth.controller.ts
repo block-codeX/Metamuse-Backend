@@ -111,7 +111,7 @@ export class AuthController {
   async verifyAccount(@Request() req, @Body() body: any): Promise<any> {
     try {
       const email = body.email;
-      const user: any = await this.usersService.getUser(null, { email });
+      const user: any = await this.usersService.findOne(null, { email });
       if (req.otpRecord && req.otpRecord.userId != user._id) {
         throw new UnauthorizedError("You're not permitted to carry this out. Request a new otp");
       }
@@ -134,12 +134,12 @@ export class AuthController {
   async resetPassword(@Request() req, @Body() body: any): Promise<any> {
     try {
       const email = body.email;
-      const user: any = await this.usersService.getUser(null, { email });
+      const user: any = await this.usersService.findOne(null, { email });
       if (req.otpRecord && req.otpRecord.userId != user._id) {
         throw new UnauthorizedError("You're not permitted to carry this out. Request a new otp");
       }
       const password = body.password;
-      await this.usersService.updateUser(user._id, { password });
+      await this.usersService.update(user._id, { password });
       return { message: 'Password reset successfully' };
     } catch (error) {
       if (error instanceof UnauthorizedError)
@@ -156,7 +156,7 @@ export class AuthController {
   async requestOTP(@Body() body: OtpRequestDto): Promise<any> {
     try {
       const email = body.email;
-      const user: any = await this.usersService.getUser(null, { email });
+      const user: any = await this.usersService.findOne(null, { email });
       const otp = await this.otpservice.createOTP(user._id, body.otpType, body.multiUse);
       console.log(otp);
       return { message: 'OTP sent successfully' };

@@ -55,7 +55,7 @@ export class AuthGuard implements CanActivate {
       if (decoded.type !== 'access') {
         throw new UnauthorizedException();
       }
-      const user = await this.userService.getUser(
+      const user = await this.userService.findOne(
         Types.ObjectId.createFromHexString(decoded.sub ?? ''),
       );
       if (user.status !== "active")

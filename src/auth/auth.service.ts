@@ -135,7 +135,7 @@ export class AuthService {
       if (decoded.type !== 'refresh') {
         throw new ForbiddenError('Invalid token type');
       }
-      const user = await this.userService.getUser(
+      const user = await this.userService.findOne(
         Types.ObjectId.createFromHexString(decoded.sub ?? ''),
       );
       if (user == null) {

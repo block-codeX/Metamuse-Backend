@@ -56,7 +56,7 @@ export class UsersService {
     }
   }
 
-  async getUsers({
+  async findAll({
     filters = {},
     page = 1,
     limit = 10,
@@ -78,7 +78,7 @@ export class UsersService {
     );
   }
 
-  async getUser(id: Types.ObjectId | null, query: any = {}): Promise<User> {
+  async findOne(id: Types.ObjectId | null, query: any = {}): Promise<User> {
     if (id) {
       query._id = id; 
     }
@@ -87,7 +87,7 @@ export class UsersService {
     return user;
   }
 
-  async updateUser(
+  async update(
     id: Types.ObjectId,
     { firstName, lastName, email, password }: Partial<UserParams>,
   ): Promise<User> {
@@ -111,7 +111,7 @@ export class UsersService {
     }
     return updatedUser;
   }
-  async deleteUser(id: Types.ObjectId): Promise<User> {
+  async remove(id: Types.ObjectId): Promise<User> {
     const user = await this.userModel.findOneAndDelete({ _id: id });
     if (user == null) throw new NotFoundError('User not found');
     return user;

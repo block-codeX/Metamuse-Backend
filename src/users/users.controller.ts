@@ -22,7 +22,7 @@ export class UsersController {
     async getUser(@Param() id: string) {
         try {
             const user_id = Types.ObjectId.createFromHexString(id);
-            const user =  await this.usersService.getUser(user_id) as any;
+            const user =  await this.usersService.findOne(user_id) as any;
             return user.select('-password, -lastAuthChange, -__v').toObject();
         }
         catch (error) {
@@ -36,7 +36,7 @@ export class UsersController {
     async deleteUser(@Param() id: string) {
         try {
             const user_id = Types.ObjectId.createFromHexString(id);
-            const user =  await this.usersService.deleteUser(user_id) as any;
+            const user =  await this.usersService.remove(user_id) as any;
             return {"message": "User successfully deleted"}
             // Probably send an email informing the user that he/she has been deleted...
         }
@@ -55,7 +55,7 @@ export class UsersController {
             if (firstName) filters.firstName = firstName;
             if (lastName) filters.lastName = lastName;
             if (email) filters.email = email;
-            const users = await this.usersService.getUsers({
+            const users = await this.usersService.findAll({
                 filters,
                 page,
                 limit,

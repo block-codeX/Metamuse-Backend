@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { DB_CONNECTION_STRING } from '@app/utils';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { MessagingModule } from './messaging/messaging.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
       ttl: 60000,
       limit: 100,
     }]),
+    MessagingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

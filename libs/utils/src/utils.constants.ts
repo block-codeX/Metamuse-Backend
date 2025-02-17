@@ -25,3 +25,6 @@ export const DB_CONNECTION_STRING = process.env.DB_CONNECTION_STRING as string;
 
 // Server
 export const PORT = parseInt(process.env.NEST_PORT as string);
+
+// Conversation
+export const CONVERSATION_MAX_MEMBERS = 200;
