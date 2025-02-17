@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { CreateMessagingDto, ICreateConversation, UpdateMessagingDto } from './messaging.dto';
+import { CreateMessagingDto, ICreateConversation, UpdateMessagingDto } from './conversation.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
-import { Conversation, Message } from './messaging.schema';
+import { Conversation, Message } from './conversation.schema';
 import {
   CONVERSATION_MAX_MEMBERS,
   NotFoundError,
