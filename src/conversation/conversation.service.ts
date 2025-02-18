@@ -143,7 +143,7 @@ export class ConversationService {
 }
 
 @Injectable()
-export class MessagingService {
+export class MessageService {
   constructor(
     @InjectModel(Message.name)
     private readonly messageModel: Model<Message>,
@@ -178,8 +178,8 @@ export class MessagingService {
       fieldsToExclude,
     );
   }
-  findOne(id: Types.ObjectId) {
-    const message = this.messageModel.findById(id);
+  async findOne(id: Types.ObjectId) {
+    const message = await this.messageModel.findById(id);
     if (message == null) throw new NotFoundError('Message not found');
     return message;
   }

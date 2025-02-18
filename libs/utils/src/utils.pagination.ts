@@ -37,3 +37,10 @@ export async function paginate<T>(
     const prev = page > 1 ? page - 1 : null
     return { docs, totalDocs, next, prev, limit, page, totalPages }
 }
+
+export interface PaginatedQuery {
+    page?: number
+    limit?: number
+    sortField?: string
+    sortOrder?: SortOrder
+}

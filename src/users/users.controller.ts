@@ -59,7 +59,7 @@ export class UsersController {
                 filters,
                 page,
                 limit,
-                order: -1,
+                order: 1,
                 sortField: 'firstName',
             });
             return users;
