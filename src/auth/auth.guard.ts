@@ -39,12 +39,13 @@ export class AuthGuard implements CanActivate {
       }
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
+    console.log("Token here", token)
     if (!token) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException("Token not provided");
     }
     try {
       if (await this.authService.isTokenBlacklisted(token, 'access')) {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException("Token is blacklisted");
       }
       const decoded = await this.jwtService.verifyAsync(token, {
         secret: JWT_VERIFYING_KEY,
@@ -53,7 +54,7 @@ export class AuthGuard implements CanActivate {
         ignoreExpiration: false,
       });
       if (decoded.type !== 'access') {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException("Token provided is not an access token");
       }
       const user = await this.userService.findOne(
         Types.ObjectId.createFromHexString(decoded.sub ?? ''),
@@ -62,8 +63,10 @@ export class AuthGuard implements CanActivate {
         throw new UnauthorizedException(`User is ${user.status}`);
       request['user'] = user
       request['token'] = token;
-    } catch {
-      throw new UnauthorizedException();
+    } catch (error) {
+      if (error instanceof UnauthorizedError)
+        throw error;
+      throw new UnauthorizedException(error.message);
     }
     return true;
   }

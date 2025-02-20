@@ -2,7 +2,6 @@ import { config } from 'dotenv';
 import { Algorithm } from 'jsonwebtoken';
 
 config();
-
 // JWT
 export const JWT_SIGNING_KEY = process.env.JWT_SIGNING_KEY as string;
 export const JWT_VERIFYING_KEY = process.env.JWT_VERIFYING_KEY as string;
@@ -15,7 +14,7 @@ export const JWT_REFRESH_TOKEN_EXPIRATION = parseInt(
 export const JWT_AUTH_HEADERS = (process.env.JWT_AUTH_HEADERS as string).split(
   ' ',
 );
-export const JWT_ALGORITHM: Algorithm = "HS256"//= process.env.JWT_ALGORITHM as Algorithm;
+export const JWT_ALGORITHM = "HS256";
 
 // OTP
 export const OTP_EXPIRATION = parseInt(process.env.OTP_EXPIRATION as string);

@@ -153,9 +153,7 @@ export class AuthService {
 
 @Injectable()
 export class OTPService {
-  constructor(
-    @InjectModel(OTP.name) private otpModel: Model<OTP>,
-  ) {}
+  constructor(@InjectModel(OTP.name) private otpModel: Model<OTP>) {}
   private generateOTP(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
@@ -168,16 +166,23 @@ export class OTPService {
     const hashedOTP = encryptPassword(otp);
     const obj: any = { userId, otpType, hashedOTP, multiUse };
     const record = await this.otpModel.create(obj);
-    const result: any = record.toJSON()
-    const sanitizedResult: any = omit(result, ['hashedOTP', 'verificationToken']);
-    sanitizedResult.otp = otp
+    const result: any = record.toJSON();
+    const sanitizedResult: any = omit(result, [
+      'hashedOTP',
+      'verificationToken',
+    ]);
+    sanitizedResult.otp = otp;
     // sanitizedResult._id = result._id.toHexString()
     return sanitizedResult;
   }
 
-  async verifyOTP({ otpId, otpType, otp }: Partial<OTPVerifyParams>): Promise<void> {
+  async verifyOTP({
+    otpId,
+    otpType,
+    otp,
+  }: Partial<OTPVerifyParams>): Promise<any> {
     const otpRecord = await this.otpModel.findOne({
-      otpId,
+      _id: Types.ObjectId.createFromHexString(otpId as string),
       otpType,
     });
     if (!otpRecord) {
@@ -188,16 +193,26 @@ export class OTPService {
     }
     if (otp && verifyPassword(otp, otpRecord.hashedOTP)) {
       otpRecord.isVerified = true;
-      otpRecord.verificationToken = encryptPassword(this.generateOTP());
+      const vToken = this.generateOTP();
+      otpRecord.verificationToken = encryptPassword(vToken);
       await otpRecord.save();
-      return;
+      const sanitizedResult = omit(otpRecord.toJSON(), [
+        'verificationToken',
+        'hashedOTP',
+      ]);
+      sanitizedResult.verificationToken = vToken;
+      return sanitizedResult;
     }
     throw new UnauthorizedError('Invalid OTP');
   }
 
-  async useOTP({ otpId, otpType, verificationToken }: Partial<OTPVerifyParams>): Promise<OTP> {
+  async useOTP({
+    otpId,
+    otpType,
+    verificationToken,
+  }: Partial<OTPVerifyParams>): Promise<OTP> {
     const otpRecord = await this.otpModel.findOne({
-      otpId,
+      _id: Types.ObjectId.createFromHexString(otpId as string),
       otpType,
     });
     if (!otpRecord) {
@@ -206,7 +221,10 @@ export class OTPService {
     if (otpRecord.isUsed) {
       throw new UnauthorizedError('OTP already used');
     }
-    if (verificationToken && verifyPassword(verificationToken, (otpRecord.verificationToken) as string)) {
+    if (
+      verificationToken &&
+      verifyPassword(verificationToken, otpRecord.verificationToken as string)
+    ) {
       if (!otpRecord.multiUse) {
         otpRecord.isUsed = true;
       }
@@ -215,5 +233,4 @@ export class OTPService {
     }
     throw new UnauthorizedError('OTP verification failed');
   }
-
 }

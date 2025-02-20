@@ -15,6 +15,7 @@ import {
   UseGuards,
   Get,
 } from '@nestjs/common';
+import { omit } from 'lodash'
 import { UsersService } from 'src/users/users.service';
 import { AuthService, OTPService } from './auth.service';
 import { AllowAny } from './auth.decorator';
@@ -26,7 +27,17 @@ import {
   ValidationError,
   ZodValidationPipe,
 } from '@app/utils';
-import { LoginDto, loginSchema, LogoutDto, logoutSchema, OtpRequestDto, otpRequestSchema, otpSchema, SignupDto, signupSchema } from './auth.dto';
+import {
+  LoginDto,
+  loginSchema,
+  LogoutDto,
+  logoutSchema,
+  OtpRequestDto,
+  otpRequestSchema,
+  otpSchema,
+  SignupDto,
+  signupSchema,
+} from './auth.dto';
 import { OTPRequired } from './auth.guard';
 
 @Controller('auth')
@@ -62,7 +73,7 @@ export class AuthController {
   async signup(@Body() body: SignupDto): Promise<any> {
     try {
       await this.usersService.signupUser(body);
-      return { message: 'Signup successful, Proceed to verify your account'}
+      return { message: 'Signup successful, Proceed to verify your account' };
     } catch (error) {
       if (error instanceof IntegrityError)
         throw new ConflictException(error.message, error.name);
@@ -91,7 +102,7 @@ export class AuthController {
 
   @Post('logout')
   @UsePipes(new ZodValidationPipe(logoutSchema))
-  async logout(@Request() req, @Body() body: LogoutDto): Promise<any> { 
+  async logout(@Request() req, @Body() body: LogoutDto): Promise<any> {
     try {
       await this.authService.blacklistToken(req.token, 'access');
       await this.authService.blacklistToken(body.token, 'refresh');
@@ -112,13 +123,18 @@ export class AuthController {
     try {
       const email = body.email;
       const user: any = await this.usersService.findOne(null, { email });
-      if (req.otpRecord && req.otpRecord.userId != user._id) {
-        throw new UnauthorizedError("You're not permitted to carry this out. Request a new otp");
+      if (
+        req.otpRecord &&
+        req.otpRecord.userId.toString() != user._id.toString()
+      ) {
+        throw new UnauthorizedError(
+          "You're not permitted to carry this out. Request a new otp",
+        );
       }
-      if (user.isVerified) {
+      if (user.status == 'active') {
         throw new UnauthorizedError('Account already verified');
       }
-      user.isVerified = true;
+      user.status = 'active';
       await user.save();
       return { message: 'Account verified successfully..Proceed to log in' };
     } catch (error) {
@@ -136,7 +152,9 @@ export class AuthController {
       const email = body.email;
       const user: any = await this.usersService.findOne(null, { email });
       if (req.otpRecord && req.otpRecord.userId != user._id) {
-        throw new UnauthorizedError("You're not permitted to carry this out. Request a new otp");
+        throw new UnauthorizedError(
+          "You're not permitted to carry this out. Request a new otp",
+        );
       }
       const password = body.password;
       await this.usersService.update(user._id, { password });
@@ -157,11 +175,14 @@ export class AuthController {
     try {
       const email = body.email;
       const user: any = await this.usersService.findOne(null, { email });
-      const otp = await this.otpservice.createOTP(user._id, body.otpType, body.multiUse);
+      const otp = await this.otpservice.createOTP(
+        user._id,
+        body.otpType,
+        body.multiUse,
+      );
       console.log(otp);
       return { message: 'OTP sent successfully' };
-    }
-    catch (error) {
+    } catch (error) {
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);
@@ -173,18 +194,23 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(otpSchema))
   async verifyOTP(@Body() body: OtpRequestDto): Promise<any> {
     try {
-      await this.otpservice.verifyOTP(body);
-      return { message: 'OTP verified successfully' };
-    }
-    catch (error) {
+      const result = await this.otpservice.verifyOTP(body);
+      return { message: 'OTP verified successfully', result };
+    } catch (error) {
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);
     }
     // Verify OTP
   }
-  @Get('profile')
+  @Get('account')
   async profile(@Request() req): Promise<any> {
-    return req.user.select('-password, -lastAuthChange, -__v').toObject();
+    try {
+      const sanitizedResult = omit(req.user.toJSON(), ['password', 'lastAuthChange', '__v'])
+      return sanitizedResult;
+    } catch (error) {
+      console.log('Error', error);
+      throw new UnauthorizedException(error.message);
+    }
   }
 }

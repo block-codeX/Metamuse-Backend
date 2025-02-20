@@ -24,16 +24,20 @@ export const logoutSchema = z
     })
     .required();
 
-export const otpSchema = z
+    export const otpSchema = z
     .object({
-        otpId : z.string(),
-        otpType: z.enum(['EMAIL', 'AUTHENTICATOR']),
-        otp: z.string().length(6).optional(),
-        verificationToken: z.string().optional(),
+      otpId: z.string(),
+      otpType: z.enum(['EMAIL', 'AUTHENTICATOR']),
+      otp: z.string().length(6).optional(),
+      verificationToken: z.string().optional(),
     })
-    .required();
-
-
+    .refine(
+      (data) => (data.otp ? !data.verificationToken : !!data.verificationToken),
+      {
+        message: 'Either otp or verificationToken must be provided, but not both.',
+        path: ['otp', 'verificationToken'],
+      }
+    );
 export const otpRequestSchema = z
 .object({
     email: z.string().email(),
