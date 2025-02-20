@@ -20,6 +20,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
 import { encryptPassword, verifyPassword } from '@app/utils/utils.encrypt';
+import { omit } from 'lodash';
 interface AuthTokenResponse {
   accessToken: string;
   userId: string;
@@ -165,10 +166,13 @@ export class OTPService {
   ): Promise<OTP> {
     const otp = this.generateOTP();
     const hashedOTP = encryptPassword(otp);
-    const verificationToken = this.generateOTP();
-    const obj: any = { userId, otpType, otp: hashedOTP, verificationToken, multiUse };
+    const obj: any = { userId, otpType, hashedOTP, multiUse };
     const record = await this.otpModel.create(obj);
-    return record;
+    const result: any = record.toJSON()
+    const sanitizedResult: any = omit(result, ['hashedOTP', 'verificationToken']);
+    sanitizedResult.otp = otp
+    // sanitizedResult._id = result._id.toHexString()
+    return sanitizedResult;
   }
 
   async verifyOTP({ otpId, otpType, otp }: Partial<OTPVerifyParams>): Promise<void> {
@@ -184,6 +188,7 @@ export class OTPService {
     }
     if (otp && verifyPassword(otp, otpRecord.hashedOTP)) {
       otpRecord.isVerified = true;
+      otpRecord.verificationToken = encryptPassword(this.generateOTP());
       await otpRecord.save();
       return;
     }

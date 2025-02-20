@@ -50,11 +50,6 @@ export class Message {
     isEdited: boolean;
 }
 
-export class BlacklistAccess {
-  @Prop({ required: true, unique: true })
-  token: string;
-}
-
 export const ConversationSchema =
     SchemaFactory.createForClass(Conversation);
 export const MessageSchema = SchemaFactory.createForClass(Message);

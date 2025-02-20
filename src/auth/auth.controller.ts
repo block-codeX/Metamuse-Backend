@@ -26,7 +26,7 @@ import {
   ValidationError,
   ZodValidationPipe,
 } from '@app/utils';
-import { LoginDto, loginSchema, LogoutDto, logoutSchema, OtpRequestDto, otpRequestSchema, SignupDto, signupSchema } from './auth.dto';
+import { LoginDto, loginSchema, LogoutDto, logoutSchema, OtpRequestDto, otpRequestSchema, otpSchema, SignupDto, signupSchema } from './auth.dto';
 import { OTPRequired } from './auth.guard';
 
 @Controller('auth')
@@ -91,7 +91,7 @@ export class AuthController {
 
   @Post('logout')
   @UsePipes(new ZodValidationPipe(logoutSchema))
-  async logout(@Request() req, @Body() body: LogoutDto): Promise<any> {
+  async logout(@Request() req, @Body() body: LogoutDto): Promise<any> { 
     try {
       await this.authService.blacklistToken(req.token, 'access');
       await this.authService.blacklistToken(body.token, 'refresh');
@@ -170,7 +170,7 @@ export class AuthController {
 
   @AllowAny()
   @Post('otp/verify')
-  @UsePipes(new ZodValidationPipe(otpRequestSchema))
+  @UsePipes(new ZodValidationPipe(otpSchema))
   async verifyOTP(@Body() body: OtpRequestDto): Promise<any> {
     try {
       await this.otpservice.verifyOTP(body);

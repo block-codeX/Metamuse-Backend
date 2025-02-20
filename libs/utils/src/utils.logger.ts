@@ -4,6 +4,7 @@ import {
     ArgumentsHost,
     HttpException,
     Logger,
+    HttpStatus,
   } from '@nestjs/common';
   
   @Catch() // No specific exception type => This will catch all exceptions
@@ -15,26 +16,20 @@ import {
       const response = ctx.getResponse();
       const request = ctx.getRequest();
   
-      let status = 500; // Default to 500 for non-HttpException errors
-      let message = 'Internal server error';
-  
-      if (exception instanceof HttpException) {
-        status = exception.getStatus();
-        message = (exception.message || exception.getResponse()) as any;
-      }
-  
-      // Log the exception details
-      this.logger.error(
-        `${request.method} ${request.url} - ${message}`,
-        (exception as Error).stack,
-      );
-  
-      response.status(status).json({
-        statusCode: status,
-        timestamp: new Date().toISOString(),
-        path: request.url,
-        message: message,
-      });
-    }
+      const status = exception instanceof HttpException
+      ? exception.getStatus()
+      : HttpStatus.INTERNAL_SERVER_ERROR;
+    
+    const message = exception instanceof HttpException
+      ? exception.getResponse()
+      : 'Internal server error';
+    
+    // For Fastify, use send() instead of json()
+    response.status(status).send({
+      statusCode: status,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+      message,
+    });
   }
-  
+}

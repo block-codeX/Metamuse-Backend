@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import * as bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 /**
  * Encrypts a password using bcrypt.
@@ -12,7 +12,8 @@ export function encryptPassword (password: string, saltRounds = 10) {
   try {
     const salt = bcrypt.genSaltSync(saltRounds)
     return bcrypt.hashSync(password, salt)
-  } catch {
+  } catch(e) {
+    console.error(e)
     throw new Error('Error while encrypting password')
   }
 }

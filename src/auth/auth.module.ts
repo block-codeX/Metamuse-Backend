@@ -17,7 +17,7 @@ import {
   JWT_ALGORITHM,
   JWT_SIGNING_KEY,
 } from '@app/utils';
-import { AuthGuard, OTPRequired } from './auth.guard';
+import { AuthGuard } from './auth.guard';
 import { APP_GUARD } from '@nestjs/core';
 
 @Module({
@@ -49,10 +49,6 @@ import { APP_GUARD } from '@nestjs/core';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: OTPRequired,
     },
   ],
   exports: [AuthService, OTPService, MongooseModule],
