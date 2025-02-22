@@ -13,8 +13,9 @@ export const RoomWsMiddleware = (conversationService: ConversationService) => {
         throw new Error('User not a member of this conversation');
       }
       console.log(`Joining room: ${roomId} for user ${socket.user._id}`);
-      socket.join(roomId);
-      socket.data.roomId = roomId;
+      const chat_room = `chat_${conversation._id.toString()}`;
+      socket.join(chat_room);
+    //   socket.data.chat_room = chat_room;
       next();
     } catch (error) {
       console.error('Room Join Error:', error.message);

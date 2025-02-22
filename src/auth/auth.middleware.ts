@@ -18,7 +18,7 @@ function extractSocketTokenFromHeader(socket): string {
   if (!token_string) {
     throw new UnauthorizedError('Token not provided');
   }
-  const [type, token] = token_string ?? [];
+  const [type, token] = token_string.split();
   if (!JWT_AUTH_HEADERS.includes(type)) {
     throw new UnauthorizedError('Token type not supported');
   }
