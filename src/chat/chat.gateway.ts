@@ -92,16 +92,16 @@ export class ChatGateway implements OnGatewayInit, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('delete')
-  async handleDeleteMessage(client: any, id: string): Promise<void> {
+  async handleDeleteMessage(client: any, data: {id: string}): Promise<void> {
     try {
       const sender = client.user._id;
-      const msg = await this.messageService.findOne(new Types.ObjectId(id));
+      const msg = await this.messageService.findOne(new Types.ObjectId(data.id));
       const chat_room = this.getRoom(msg);
       if (!msg.sender.equals(sender)) {
         throw new Error('You are not the sender of this message');
       }
-      const message = await this.messageService.remove(new Types.ObjectId(id));
-      this.server.to(chat_room).emit('delete_message', message);
+      await this.messageService.remove(new Types.ObjectId(data.id));
+      this.server.to(chat_room).emit('delete_message', {"info": "Message deleted", "id": data.id});
     } catch (error) {
       console.error(error);
       client.emit('delete_error', error.message);
