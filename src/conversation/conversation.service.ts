@@ -26,6 +26,7 @@ export class ConversationService {
       throw new ValidationError('Every group must have a name');
     }
     admins.push(creator)
+    members.push(creator)
     if (isGroup) {
       input_data['admins'] = admins;
     }
