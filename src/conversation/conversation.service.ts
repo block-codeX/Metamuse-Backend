@@ -74,7 +74,7 @@ export class ConversationService {
   }
 
   async findOne(id: Types.ObjectId) {
-    const conversation = await this.conversationModel.findById(id).populate('members', 'admins');
+    const conversation = await this.conversationModel.findById(id)
     if (conversation == null) throw new NotFoundError('Conversation not found');
     return conversation;
   }
@@ -94,7 +94,7 @@ export class ConversationService {
   async addMember(conversationId: Types.ObjectId, memberId: Types.ObjectId) {
     const user = await this.userService.findOne(memberId);
     const conversation = await this.findOne(conversationId);
-    if (conversation.members.includes(memberId)) {
+    if (conversation.members.some((member) => member.equals(memberId))) {
       throw new ValidationError(
         'User is already a member of this conversation',
       );
@@ -106,6 +106,8 @@ export class ConversationService {
     }
     conversation.members.push(memberId);
     await conversation.save();
+    await conversation.populate('members', '_id email firstName lastName')
+    await conversation.populate('admins', '_id email firstName lastName')
     return conversation;
   }
   async removeMember(conversationId: Types.ObjectId, memberId: Types.ObjectId) {
@@ -114,7 +116,7 @@ export class ConversationService {
       throw new ValidationError('User is not a member of this conversation');
     }
     await this.userService.findOne(memberId);
-    conversation.members = conversation.members.filter((id) => id !== memberId);
+    conversation.members = conversation.members.filter((id) => !id.equals(memberId));
     await conversation.save();
     return conversation;
   }
@@ -129,6 +131,11 @@ export class ConversationService {
       );
     }
     await this.userService.findOne(adminId);
+    if (!conversation.members.some((member) => member.equals(adminId)))
+      throw new ValidationError(
+        'User must be a member of the conversation to be an admin',
+      );
+      
     conversation.admins.push(adminId);
     await conversation.save();
     return conversation;
@@ -138,10 +145,10 @@ export class ConversationService {
     if (!conversation.isGroup) {
       throw new ValidationError('Only group conversations can have admins');
     }
-    if (!conversation.admins.includes(adminId)) {
+    if (!conversation.admins.some((admin) => admin.equals(adminId))) {
       throw new ValidationError('User is not an admin of this conversation');
     }
-    conversation.admins = conversation.admins.filter((id) => id !== adminId);
+    conversation.admins = conversation.admins.filter((id) => !id.equals(adminId));
     await conversation.save();
     return conversation;
   }

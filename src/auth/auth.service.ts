@@ -5,6 +5,7 @@ import { BlacklistAccess, BlacklistRefresh, OTP } from './auth.schema';
 import {
   ForbiddenError,
   IntegrityError,
+  JWT_SIGNED_TOKEN_EXPIRY,
   NotFoundError,
   UnauthorizedError,
   ValidationError,
@@ -83,6 +84,29 @@ export class AuthService {
     await this.blacklistAccessModel.deleteMany({});
     await this.blacklistRefreshModel.deleteMany({});
   }
+
+  createLinkToken(data: any): string {
+    return this.jwtService.sign(data, {
+      secret: JWT_SIGNING_KEY,
+      expiresIn:  JWT_SIGNED_TOKEN_EXPIRY,
+      algorithm: JWT_ALGORITHM,
+    });
+  }
+
+  verifyLinkToken(token: string): any {
+    try {
+      const decoded = this.jwtService.verify(token, {
+        secret: JWT_VERIFYING_KEY,
+        algorithms: [JWT_ALGORITHM],
+        maxAge: JWT_SIGNED_TOKEN_EXPIRY,
+        ignoreExpiration: false,
+      });
+      return decoded;
+    } catch (error) {
+      throw new UnauthorizedError('Invalid token');
+    }
+  }
+
   async getTokens(
     user, //: IUserDocument
   ): Promise<AuthTokenResponse> {
@@ -157,6 +181,7 @@ export class OTPService {
   private generateOTP(): string {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
+
   async createOTP(
     userId: Types.ObjectId,
     otpType: 'EMAIL' | 'AUTHENTICATOR',

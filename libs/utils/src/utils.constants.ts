@@ -8,6 +8,7 @@ export const JWT_VERIFYING_KEY = process.env.JWT_VERIFYING_KEY as string;
 export const JWT_ACCESS_TOKEN_EXPIRATION = parseInt(
   process.env.JWT_ACCESS_TOKEN_EXPIRATION as string,
 );
+export const JWT_SIGNED_TOKEN_EXPIRY = process.env.JWT_SIGNED_TOKEN_EXPIRY as string;
 export const JWT_REFRESH_TOKEN_EXPIRATION = parseInt(
   process.env.JWT_REFRESH_TOKEN_EXPIRATION as string,
 );

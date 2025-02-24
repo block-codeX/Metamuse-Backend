@@ -26,6 +26,8 @@ import {
 } from './conversation.permission';
 import AuthPermissions from '@app/utils/utils.permission';
 import { Message } from './conversation.schema';
+import { AuthService } from 'src/auth/auth.service';
+import { AllowAny } from 'src/auth/auth.decorator';
 
 interface GetMessagesQuery extends PaginatedQuery {
   text?: string;
@@ -44,12 +46,13 @@ interface AddMember {
 @Controller('conversations')
 export class ConversationController {
   constructor(
+    private readonly authService: AuthService,
     private readonly conversationService: ConversationService,
     private readonly messageService: MessageService,
   ) {}
 
   @Post('new')
-  async create(@Request() req, @Body() { name }: { name: string}) {
+  async create(@Request() req, @Body() { name }: { name: string }) {
     try {
       const createData = {
         name,
@@ -68,14 +71,16 @@ export class ConversationController {
     }
   }
   @Post('converse')
-  async converse(@Request() req, @Body() converseDto: {  second: string }) {
+  async converse(@Request() req, @Body() converseDto: { second: string }) {
     try {
       const first = req.user._id;
       if (!converseDto.second)
-        throw new ValidationError("The second person is required")
+        throw new ValidationError('The second person is required');
       const second = Types.ObjectId.createFromHexString(converseDto.second);
       if (first == second)
-        throw new ValidationError("You cannot have a conversation with yourself")
+        throw new ValidationError(
+          'You cannot have a conversation with yourself',
+        );
       const conversation = await this.conversationService.converse(
         first,
         second,
@@ -83,7 +88,7 @@ export class ConversationController {
       await conversation.populate('members', '_id firstName lastName email');
       return conversation;
     } catch (error) {
-      console.error(error)
+      console.error(error);
       if (error instanceof NotFoundError)
         throw new NotFoundException(error.message, error.name);
       else if (error instanceof ValidationError)
@@ -95,7 +100,7 @@ export class ConversationController {
   @Get()
   findAll(@Request() req, @Query() query: GetConversationsQuery) {
     try {
-      const { page = 1, limit = 100 , isGroup, creator, isAdmin, name } = query;
+      const { page = 1, limit = 100, isGroup, creator, isAdmin, name } = query;
       const filters: any = { members: { $in: [req.user._id] } };
       if (isGroup) filters.isGroup = isGroup;
       if (creator) filters.creator = req.user._id;
@@ -123,7 +128,8 @@ export class ConversationController {
       const conversationId = Types.ObjectId.createFromHexString(id);
       const conversation =
         await this.conversationService.findOne(conversationId);
-      await conversation.populate('members', '_id firstName lastName email');
+      await conversation.populate('members', '_id email firstName lastName');
+      await conversation.populate('admins', '_id email firstName lastName');
       return conversation;
     } catch (error) {
       if (error instanceof NotFoundError)
@@ -133,7 +139,11 @@ export class ConversationController {
   }
 
   @Patch(':id')
-  async update(@Request() req, @Param('id') id: string, @Body() { name }: { name: string }) {
+  async update(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() { name }: { name: string },
+  ) {
     try {
       const permissions = [new IsConversationCreator()];
       const conversationId = Types.ObjectId.createFromHexString(id);
@@ -148,6 +158,9 @@ export class ConversationController {
         throw new ForbiddenError(error, 403, 'Permission denied');
       conversation.name = name;
       await conversation.save();
+      await conversation.populate('members', '_id email firstName lastName')
+      await conversation.populate('admins', '_id email firstName lastName');
+      return conversation;
     } catch (error) {
       if (error instanceof ValidationError)
         throw new BadRequestException(error.message);
@@ -251,7 +264,7 @@ export class ConversationController {
           "Permission denied, you're not a member of this conversation",
         );
       const filters: FilterQuery<Message> = { conversation: conversationId };
-      if (query.text) filters.text = query.text;
+      if (query.text) filters.content = { $regex: query.text, $options: 'i' };
       const { page = 1, limit = 1000 } = query;
       const messages = await this.messageService.findAll({
         filters,
@@ -272,11 +285,11 @@ export class ConversationController {
     }
   }
 
-  @Post(':id/admins/new')
+  @Post(':id/admins/:adminId')
   async addAdmin(
     @Request() req,
     @Param('id') id: string,
-    @Body() adminId: string,
+    @Param('adminId') adminId: string,
   ) {
     try {
       const permissions = [new IsConversationAdmin()];
@@ -301,6 +314,8 @@ export class ConversationController {
         conversationId,
         admin,
       );
+      await updatedConversation.populate('members', '_id email firstName lastName')
+      await updatedConversation.populate('admins', '_id email firstName lastName');
       return updatedConversation;
     } catch (error) {
       if (error instanceof ValidationError)
@@ -342,6 +357,8 @@ export class ConversationController {
         conversationId,
         admin,
       );
+      await updatedConversation.populate('members', '_id email firstName lastName')
+      await updatedConversation.populate('admins', '_id email firstName lastName');
       return updatedConversation;
     } catch (error) {
       if (error instanceof ValidationError)
@@ -382,14 +399,23 @@ export class ConversationController {
           conversationId,
           member,
         );
+        await updatedConversation.populate('members', '_id email firstName lastName')
+        await updatedConversation.populate('admins', '_id email firstName lastName');
         return {
           message: 'Member successfully added',
           conversation: updatedConversation,
         };
       } else {
-        // Create a link to send a conversation
+        const link = await this.authService.createLinkToken(
+          {
+            conversationId: conversationId.toHexString(),
+            userId: member.toHexString(),
+          }
+        )
         // Send the link to the person's email
-        return { message: 'Link successfully created' };
+        // Create a link to send a conversation
+        // Send the link to the person's email Correc this later to reflect the actual lin
+        return { message: 'Link successfully created', link: `http://localhost:3000/api/v1/conversations/:id/members/join?token=${link}` };
       }
     } catch (error) {
       if (error instanceof ValidationError)
@@ -429,6 +455,8 @@ export class ConversationController {
         conversationId,
         member,
       );
+      await updatedConversation.populate('members', '_id email firstName lastName')
+      await updatedConversation.populate('admins', '_id email firstName lastName');
       return updatedConversation;
     } catch (error) {
       if (error instanceof ValidationError)
@@ -440,9 +468,27 @@ export class ConversationController {
       throw new BadRequestException(error.message);
     }
   }
-
-  @Post(':id/members/join')
-  async joinConversation(@Request() req, @Param('id') id: string) {
-    // To be implemented later
+  
+  @AllowAny()
+  @Post('members/join')
+  async joinConversation(@Request() req, @Query('token') token: string) {
+    try {
+      const { conversationId, userId } = await this.authService.verifyLinkToken(
+        token
+      );
+      const conversation = await this.conversationService.addMember(
+        Types.ObjectId.createFromHexString(conversationId),
+        Types.ObjectId.createFromHexString(userId)
+      );
+      await conversation.populate('members', '_id email firstName lastName')
+      await conversation.populate('admins', '_id email firstName lastName')
+      return conversation;
+    } catch (error) {
+      if (error instanceof ValidationError)
+        throw new BadRequestException(error.message);
+      if (error instanceof NotFoundError)
+        throw new NotFoundException(error.message, error.name);
+      throw new BadRequestException(error.message);
+    }
   }
 }
