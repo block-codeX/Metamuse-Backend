@@ -11,7 +11,7 @@ export class Conversation {
     @Prop({ type: Types.ObjectId, ref: 'User', required: true })
     creator: Types.ObjectId;
 
-    @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+    @Prop({ type: [Types.ObjectId], ref: 'User', required: true }) // Specify as an array
     members: Types.ObjectId[];
 
     @Prop({ default: Date.now })
@@ -20,13 +20,14 @@ export class Conversation {
     @Prop({ default: Date.now })
     updatedAt: Date;
 
-    @Prop({ default: false})
+    @Prop({ type: Boolean, default: false})
     isGroup: boolean;
 
-    @Prop({ type: Types.ObjectId, ref:"User", default: []})
+    @Prop({ type: [Types.ObjectId], ref:"User", default: []})
     admins: Types.ObjectId[];
 }
 
+@Schema()
 export class Message {
     @Prop({ type: Types.ObjectId, ref: 'User', required: true })
     sender: Types.ObjectId;
@@ -34,19 +35,19 @@ export class Message {
     @Prop({ type: Types.ObjectId, ref: 'Conversation', required: true })
     conversation: Types.ObjectId;
 
-    @Prop({ required: true })
+    @Prop({type: String, required: true })
     content: string;
 
     @Prop({ default: Date.now })
     createdAt: Date;
 
-    @Prop({ default: Date.now })
+    @Prop({ type: Date,  default: Date.now })
     updatedAt: Date;
 
-    @Prop({ default: false})
+    @Prop({ type: Boolean, default: false})
     isRead: boolean;
 
-    @Prop({ default: false})
+    @Prop({ type: Boolean, default: false})
     isEdited: boolean;
 }
 

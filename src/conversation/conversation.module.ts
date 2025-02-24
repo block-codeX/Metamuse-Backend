@@ -6,14 +6,12 @@ import { Conversation, Message, ConversationSchema, MessageSchema } from './conv
 import { UsersModule } from 'src/users/users.module';
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Conversation.name, schema: ConversationSchema },
-      { name: Message.name, schema: MessageSchema }
-    ]),
+    MongooseModule.forFeature([{ name: Conversation.name, schema: ConversationSchema }]),
+    MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
     UsersModule
   ],
   controllers: [ConversationController],
   providers: [ConversationService, MessageService],
-  exports: [MongooseModule, ConversationService, MessageService],
+  exports: [ConversationService, MessageService, MongooseModule],
 })
 export class ConversationModule {}

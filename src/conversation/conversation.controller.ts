@@ -63,17 +63,22 @@ export class ConversationController {
     }
   }
   @Post('converse')
-  async converse(@Body() converseDto: { first: string; second: string }) {
+  async converse(@Request() req, @Body() converseDto: {  second: string }) {
     try {
-      const first = Types.ObjectId.createFromHexString(converseDto.first);
+      const first = req.user._id;
+      if (!converseDto.second)
+        throw new ValidationError("The second person is required")
       const second = Types.ObjectId.createFromHexString(converseDto.second);
+      if (first == second)
+        throw new ValidationError("You cannot have a conversation with yourself")
       const conversation = await this.conversationService.converse(
         first,
         second,
       );
-      conversation.populate('members');
+      await conversation.populate('members', '_id firstName lastName email');
       return conversation;
     } catch (error) {
+      console.error(error)
       if (error instanceof NotFoundError)
         throw new NotFoundException(error.message, error.name);
       else if (error instanceof ValidationError)

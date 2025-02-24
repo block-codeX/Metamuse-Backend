@@ -14,11 +14,14 @@ import { UsersService } from 'src/users/users.service';
 type SocketMiddleware = (socket: Socket, next: (err?: Error) => void) => void;
 
 function extractSocketTokenFromHeader(socket): string {
-  const token_string = socket.handshake?.auth?.token;
+  let token_string = socket.handshake?.auth?.token;
+  if (!token_string) {
+    token_string = socket.handshake?.headers?.authorization;
+  }
   if (!token_string) {
     throw new UnauthorizedError('Token not provided');
   }
-  const [type, token] = token_string.split();
+  const [type, token] = token_string.split(' ');
   if (!JWT_AUTH_HEADERS.includes(type)) {
     throw new UnauthorizedError('Token type not supported');
   }
@@ -33,7 +36,6 @@ export const AuthWsMiddleware = (
   return async (socket: any, next) => {
     try {
       const token = extractSocketTokenFromHeader(socket);
-      console.log('Token here', token);
       if (await authService.isTokenBlacklisted(token, 'access')) {
         throw new UnauthorizedError('Token is blacklisted');
       }

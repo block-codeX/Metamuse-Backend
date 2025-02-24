@@ -10,7 +10,6 @@ import { RoomWsMiddleware } from './chat.middleware';
 import { Types } from 'mongoose';
 
 interface CreateMsg {
-  conversation: string;
   content: string;
 }
 interface UpdateMsg {
@@ -51,18 +50,22 @@ export class ChatGateway implements OnGatewayInit, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('create')
-  async handleCreateMessage(client: any, payload: CreateMsg): Promise<void> {
+  async handleCreateMessage(client: any, payload: CreateMsg): Promise<any> {
     try {
       const sender = client.user._id;
-      const { conversation, content } = payload;
+      const conversation = client.roomId
+      console.log("Conversation", conversation)
+      const { content } = payload;
       const message = await this.messageService.create({
-        conversation: new Types.ObjectId(conversation),
+        conversation: new Types.ObjectId(conversation as string),
         sender,
         content,
       } as CreateMessagingDto);
+      console.log("Message created", message)
       const chat_room = this.getRoom(message);
-      // Emit this event to the whole room
-      client.to(chat_room).emit('new_message', message);
+      this.server.to(chat_room).emit('new_message', message);
+      console.log("Sent")
+      return message;
     } catch (error) {
       console.error(error);
       client.emit('create_error', error.message);
@@ -81,7 +84,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayDisconnect {
       }
       const message = await this.messageService.update(new Types.ObjectId(id), content);
       // emit to chat room
-      client.to(chat_room).emit('update_message', message);
+      this.server.to(chat_room).emit('update_message', message);
     } catch (error) {
       console.error(error);
       client.emit('update_error', error.message);
@@ -98,8 +101,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayDisconnect {
         throw new Error('You are not the sender of this message');
       }
       const message = await this.messageService.remove(new Types.ObjectId(id));
-      // emit to chat room 
-      client.to(chat_room).emit('delete_message', message);
+      this.server.to(chat_room).emit('delete_message', message);
     } catch (error) {
       console.error(error);
       client.emit('delete_error', error.message);

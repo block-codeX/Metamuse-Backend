@@ -15,7 +15,7 @@ export const RoomWsMiddleware = (conversationService: ConversationService) => {
       console.log(`Joining room: ${roomId} for user ${socket.user._id}`);
       const chat_room = `chat_${conversation._id.toString()}`;
       socket.join(chat_room);
-    //   socket.data.chat_room = chat_room;
+      socket.roomId = roomId;
       next();
     } catch (error) {
       console.error('Room Join Error:', error.message);
