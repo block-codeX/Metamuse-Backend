@@ -7,6 +7,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { DB_CONNECTION_STRING } from '@app/utils';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ConversationModule } from './conversation/conversation.module';
+import { ChatGateway } from './chat/chat.gateway';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -18,8 +20,9 @@ import { ConversationModule } from './conversation/conversation.module';
       limit: 100,
     }]),
     ConversationModule,
+    ChatModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ChatGateway],
 })
 export class AppModule {}

@@ -30,6 +30,12 @@ import { Message } from './conversation.schema';
 interface GetMessagesQuery extends PaginatedQuery {
   text?: string;
 }
+interface GetConversationsQuery extends PaginatedQuery {
+  creator?: boolean;
+  isAdmin?: boolean;
+  isGroup?: boolean;
+  name?: string;
+}
 interface AddMember {
   userId: string;
   isLink: boolean;
@@ -43,12 +49,11 @@ export class ConversationController {
   ) {}
 
   @Post('new')
-  async create(@Request() req, @Body() name: string) {
+  async create(@Request() req, @Body() { name }: { name: string}) {
     try {
       const createData = {
         name,
         creator: req.user._id,
-        admins: [req.user._id],
         isGroup: true,
       };
       const conversation = await this.conversationService.create(createData);
@@ -63,17 +68,22 @@ export class ConversationController {
     }
   }
   @Post('converse')
-  async converse(@Body() converseDto: { first: string; second: string }) {
+  async converse(@Request() req, @Body() converseDto: {  second: string }) {
     try {
-      const first = Types.ObjectId.createFromHexString(converseDto.first);
+      const first = req.user._id;
+      if (!converseDto.second)
+        throw new ValidationError("The second person is required")
       const second = Types.ObjectId.createFromHexString(converseDto.second);
+      if (first == second)
+        throw new ValidationError("You cannot have a conversation with yourself")
       const conversation = await this.conversationService.converse(
         first,
         second,
       );
-      conversation.populate('members');
+      await conversation.populate('members', '_id firstName lastName email');
       return conversation;
     } catch (error) {
+      console.error(error)
       if (error instanceof NotFoundError)
         throw new NotFoundException(error.message, error.name);
       else if (error instanceof ValidationError)
@@ -83,12 +93,16 @@ export class ConversationController {
   }
 
   @Get()
-  findAll(@Request() req, @Query() query: PaginatedQuery) {
+  findAll(@Request() req, @Query() query: GetConversationsQuery) {
     try {
-      const { page = 1, limit = 100 } = query;
-      const filters = { members: { $in: [req.user._id] } };
+      const { page = 1, limit = 100 , isGroup, creator, isAdmin, name } = query;
+      const filters: any = { members: { $in: [req.user._id] } };
+      if (isGroup) filters.isGroup = isGroup;
+      if (creator) filters.creator = req.user._id;
+      if (isAdmin) filters.admins = { $in: [req.user._id] };
+      if (name) filters.name = { $regex: name, $options: 'i' };
       return this.conversationService.findAll({
-        filters: {},
+        filters,
         page,
         limit,
         order: -1,
@@ -119,7 +133,7 @@ export class ConversationController {
   }
 
   @Patch(':id')
-  async update(@Request() req, @Param('id') id: string, @Body() name: string) {
+  async update(@Request() req, @Param('id') id: string, @Body() { name }: { name: string }) {
     try {
       const permissions = [new IsConversationCreator()];
       const conversationId = Types.ObjectId.createFromHexString(id);

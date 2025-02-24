@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateMessagingDto, ICreateConversation, UpdateMessagingDto } from './conversation.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
-import { Conversation, Message } from './conversation.schema';
+import { Conversation, Message, MessageDocument } from './conversation.schema';
 import {
   CONVERSATION_MAX_MEMBERS,
   NotFoundError,
@@ -20,30 +20,35 @@ export class ConversationService {
     private readonly userService: UsersService,
   ) {}
   async create(data: ICreateConversation) {
-    const { name, isGroup = false, creator } = data;
+    const { name, isGroup = false, creator, members = [], admins = [] } = data;
     const input_data = {};
     if (isGroup && !name) {
       throw new ValidationError('Every group must have a name');
     }
+    admins.push(creator)
+    members.push(creator)
     if (isGroup) {
-      input_data['admins'] = [creator];
+      input_data['admins'] = admins;
     }
     input_data['name'] = name;
     input_data['isGroup'] = isGroup;
     input_data['creator'] = creator;
+    input_data['members'] = members
     return await this.conversationModel.create(input_data);
   }
 
   async converse(first: Types.ObjectId, second: Types.ObjectId) {
+    console.log("fi", first, second)
     const conversation = await this.conversationModel.findOne({
       members: { $all: [first, second] },
     });
     if (conversation) return conversation;
-    return await this.create({
+    const conv  =  await this.create({
       creator: first,
       isGroup: false,
       members: [first, second],
     });
+    return conv
   }
 
   async findAll({
@@ -145,12 +150,11 @@ export class ConversationService {
 @Injectable()
 export class MessageService {
   constructor(
-    @InjectModel(Message.name)
-    private readonly messageModel: Model<Message>,
+    @InjectModel(Message.name) private readonly messageModel: Model<MessageDocument>,
     private readonly conversationService: ConversationService,
     private readonly userService: UsersService,
   ) {}
-  async create(createMessagingDto: CreateMessagingDto) {
+  async create(createMessagingDto: CreateMessagingDto): Promise<Message> {
     await this.conversationService.findOne(createMessagingDto.conversation);
     await this.userService.findOne(createMessagingDto.sender);
     const message = await this.messageModel.create(createMessagingDto);
