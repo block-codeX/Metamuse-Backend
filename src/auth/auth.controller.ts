@@ -180,9 +180,10 @@ export class AuthController {
         body.otpType,
         body.multiUse,
       );
-      console.log(otp);
-      return { message: 'OTP sent successfully' };
+      this.otpservice.sendOTP(otp, user);
+      return { message: 'OTP sent successfully'};
     } catch (error) {
+      throw error
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);
