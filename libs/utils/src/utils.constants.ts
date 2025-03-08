@@ -47,3 +47,6 @@ export const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME as string;
 
 // Frontend
 export const FRONTEND_URL = process.env.FRONTEND_URL as string;
+
+// CRDT Layer
+export const REDIS_URL = process.env.REDIS_URL as string;

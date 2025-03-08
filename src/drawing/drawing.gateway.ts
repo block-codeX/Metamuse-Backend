@@ -5,7 +5,7 @@ import { UpdateDrawingDto } from './dto/update-drawing.dto';
 import { AuthWsMiddleware } from 'src/auth/auth.middleware';
 import { AuthService } from 'src/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { UsersService } from 'src/users/users.service';
 
 @WebSocketGateway()

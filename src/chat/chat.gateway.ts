@@ -1,7 +1,7 @@
 import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { CreateMessagingDto } from 'src/conversation/conversation.dto';
 import { ConversationService, MessageService } from 'src/conversation/conversation.service';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { AuthWsMiddleware } from '../auth/auth.middleware';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from 'src/auth/auth.service';
