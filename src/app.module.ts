@@ -10,6 +10,7 @@ import { ConversationModule } from './conversation/conversation.module';
 import { ChatGateway } from './chat/chat.gateway';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
+import { DrawingModule } from './drawing/drawing.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { NotificationModule } from './notification/notification.module';
     ConversationModule,
     ChatModule,
     NotificationModule,
+    DrawingModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],
