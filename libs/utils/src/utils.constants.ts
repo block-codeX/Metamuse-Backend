@@ -50,3 +50,6 @@ export const FRONTEND_URL = process.env.FRONTEND_URL as string;
 
 // CRDT Layer
 export const REDIS_URL = process.env.REDIS_URL as string;
+export const YJS_REDIS_HOST = process.env.YJS_REDIS_HOST as string;
+export const YJS_REDIS_PORT = parseInt(process.env.YJS_REDIS_PORT as string);
+export const YJS_REDIS_DB = parseInt(process.env.YJS_REDIS_DB as string);

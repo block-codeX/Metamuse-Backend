@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as Y from 'yjs';
 import { Server, Socket } from 'socket.io';
 import { RedisPersistence, PersistenceDoc } from 'y-redis';
@@ -191,7 +191,7 @@ export class CRDTService {
     private readonly projectService: ProjectService,
     private readonly fileService: FileService,
     private readonly userService: UsersService,
-    private readonly redisConfig: any,
+    @Inject('REDIS_CONFIG') private readonly redisConfig: any, 
     @InjectModel(Project.name) private projectModel: Model<Project>,
 
   ) {}

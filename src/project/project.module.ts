@@ -9,7 +9,13 @@ import { Project, ProjectSchema } from './project.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from 'src/auth/auth.module';
 import { AuthService } from 'src/auth/auth.service';
+import { YJS_REDIS_DB, YJS_REDIS_HOST, YJS_REDIS_PORT } from '@app/utils';
 
+const redisConfig = {
+  host: YJS_REDIS_HOST,
+  port: YJS_REDIS_PORT,
+  db: YJS_REDIS_DB,
+};
 @Module({
   imports: [
     AuthModule,
@@ -18,14 +24,18 @@ import { AuthService } from 'src/auth/auth.service';
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
   ],
   providers: [
+    {
+      provide: 'REDIS_CONFIG', // Use a token to identify the provider
+      useValue: redisConfig, // Provide the Redis configuration
+    },
     ProjectGateway,
     ProjectService,
     AuthService,
     ConversationService,
     UsersService,
     CRDTService,
-    FileService
+    FileService,
   ],
-  exports: [ProjectService, CRDTService, FileService]
+  exports: [ProjectService, CRDTService, FileService],
 })
 export class ProjectModule {}
