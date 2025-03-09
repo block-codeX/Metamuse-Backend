@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FilterQuery, Model, MongooseError, SortOrder, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
-import { User } from './users.schema';
+import { User, UserDocument } from './users.schema';
 import {
   IntegrityError,
   NotFoundError,
@@ -26,8 +26,8 @@ export class UsersService {
     @InjectModel(User.name) private readonly userModel: Model<User>,
   ) {}
 
-  async loginUser(email: string, password: string): Promise<User> {
-    const user = await this.userModel.findOne({ email }).lean();
+  async loginUser(email: string, password: string): Promise<UserDocument> {
+    const user = await this.userModel.findOne({ email });
     if (user == null) throw new NotFoundError(`User  with ${email} not found`);
     if (!verifyPassword(password, user.password)) {
       throw new UnauthorizedError('Invalid password');
@@ -39,7 +39,7 @@ export class UsersService {
     lastName,
     email,
     password,
-  }: UserParams): Promise<User> {
+  }: UserParams): Promise<UserDocument> {
     try {
       const user = await this.userModel.create({
         firstName,
@@ -78,7 +78,7 @@ export class UsersService {
     );
   }
 
-  async findOne(id: Types.ObjectId | null, query: any = {}): Promise<User> {
+  async findOne(id: Types.ObjectId | null, query: any = {}): Promise<UserDocument> {
     if (id) {
       query._id = id; 
     }
@@ -111,7 +111,7 @@ export class UsersService {
     }
     return updatedUser;
   }
-  async remove(id: Types.ObjectId): Promise<User> {
+  async remove(id: Types.ObjectId): Promise<UserDocument> {
     const user = await this.userModel.findOneAndDelete({ _id: id });
     if (user == null) throw new NotFoundError('User not found');
     return user;

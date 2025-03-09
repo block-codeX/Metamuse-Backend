@@ -10,7 +10,8 @@ import { ConversationModule } from './conversation/conversation.module';
 import { ChatGateway } from './chat/chat.gateway';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
-import { DrawingModule } from './drawing/drawing.module';
+import { ProjectModule } from './project/project.module';
+import { ProjectGateway } from './project/project.gateway';
 
 @Module({
   imports: [
@@ -24,9 +25,9 @@ import { DrawingModule } from './drawing/drawing.module';
     ConversationModule,
     ChatModule,
     NotificationModule,
-    DrawingModule,
+    ProjectModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ChatGateway],
+  providers: [AppService, ChatGateway, ProjectGateway],
 })
 export class AppModule {}

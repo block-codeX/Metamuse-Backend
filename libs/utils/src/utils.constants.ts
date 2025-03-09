@@ -22,7 +22,7 @@ export const OTP_EXPIRATION = parseInt(process.env.OTP_EXPIRATION as string);
 export const OTP_LENGTH = parseInt(process.env.OTP_LENGTH as string);
 // Database
 export const DB_CONNECTION_STRING = process.env.DB_CONNECTION_STRING as string;
-
+export const DB_NAME = "metamuse"
 // Server
 export const PORT = parseInt(process.env.NEST_PORT as string);
 
