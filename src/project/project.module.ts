@@ -10,6 +10,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from 'src/auth/auth.module';
 import { AuthService } from 'src/auth/auth.service';
 import { YJS_REDIS_DB, YJS_REDIS_HOST, YJS_REDIS_PORT } from '@app/utils';
+import { ProjectController } from './project.controller';
 
 const redisConfig = {
   host: YJS_REDIS_HOST,
@@ -28,7 +29,6 @@ const redisConfig = {
       provide: 'REDIS_CONFIG', // Use a token to identify the provider
       useValue: redisConfig, // Provide the Redis configuration
     },
-    ProjectGateway,
     ProjectService,
     AuthService,
     ConversationService,
@@ -37,5 +37,6 @@ const redisConfig = {
     FileService,
   ],
   exports: [ProjectService, CRDTService, FileService],
+  controllers: [ProjectController],
 })
 export class ProjectModule {}

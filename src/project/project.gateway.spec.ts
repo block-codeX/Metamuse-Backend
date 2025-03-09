@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProjectGateway } from './project.gateway';
 import { ProjectService } from './project.service';
 
-describe('DrawingGateway', () => {
+describe('ProjectGateway', () => {
   let gateway: ProjectGateway;
 
   beforeEach(async () => {

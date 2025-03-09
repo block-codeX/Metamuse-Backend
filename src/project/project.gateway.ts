@@ -25,7 +25,7 @@ import * as Y from 'yjs';
   cors: {
     origin: '*', // In production, this should be more restrictive
   },
-  namespace: 'drawing',
+  namespace: 'Project',
 })
 @Injectable()
 export class ProjectGateway
@@ -53,7 +53,7 @@ export class ProjectGateway
       AuthWsMiddleware(this.jwtService, this.authService, this.usersService),
     );
     // server.use(RoomWsMiddleware(this.conversationService));
-    this.logger.log('Drawing WebSocket Gateway initialized');
+    this.logger.log('Project WebSocket Gateway initialized');
   }
 
   async handleConnection(client: Socket) {
