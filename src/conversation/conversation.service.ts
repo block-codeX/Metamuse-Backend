@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateMessagingDto, ICreateConversation, UpdateMessagingDto } from './conversation.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
-import { Conversation, Message, MessageDocument } from './conversation.schema';
+import { Conversation, Message } from './conversation.schema';
 import {
   CONVERSATION_MAX_MEMBERS,
   NotFoundError,
@@ -157,7 +157,7 @@ export class ConversationService {
 @Injectable()
 export class MessageService {
   constructor(
-    @InjectModel(Message.name) private readonly messageModel: Model<MessageDocument>,
+    @InjectModel(Message.name) private readonly messageModel: Model<Message>,
     private readonly conversationService: ConversationService,
     private readonly userService: UsersService,
   ) {}

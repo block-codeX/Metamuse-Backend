@@ -172,6 +172,7 @@ export class AuthService {
       await this.blacklistToken(oldRefreshToken, 'refresh');
       return newTokens;
     } catch (error) {
+      console.error(error)
       throw new UnauthorizedError('Invalid token');
     }
   }
@@ -271,7 +272,7 @@ export class OTPService {
       template: 'otp-email',
       context: {
         otp: otp.otp,
-        verificationLink: `${FRONTEND_URL}/verify/${otp._id.toHexString()}?type=${otp.otpType}`,
+        verificationLink: `${FRONTEND_URL}/auth/verify?id=${otp._id.toHexString()}&type=${otp.otpType}`,
         userName: user.firstName, // Simple way to get a username from email
         currentYear: new Date().getFullYear(),
       },

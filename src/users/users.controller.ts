@@ -1,8 +1,9 @@
-import { BadRequestException, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Delete, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { NotFoundError } from '@app/utils';
 import { FilterQuery, Types } from 'mongoose';
 import { User } from './users.schema';
+import { AllowAny } from 'src/auth/auth.decorator';
 
 interface GetUsersQuery {
     firstName?: string;
@@ -18,12 +19,14 @@ export class UsersController {
         private readonly usersService: UsersService,
     ) {}
 
-    @Get()
+    @AllowAny()
+    @Get(':id')
     async getUser(@Param() id: string) {
         try {
-            const user_id = Types.ObjectId.createFromHexString(id);
+            const user_id = new Types.ObjectId(id);
             const user =  await this.usersService.findOne(user_id) as any;
-            return user.select('-password, -lastAuthChange, -__v').toObject();
+            const { password, lastAuthChange, __v, ...userObject } = user.toObject();
+            return userObject;  
         }
         catch (error) {
             if (error instanceof NotFoundError)
@@ -32,10 +35,10 @@ export class UsersController {
 
         }
     }
-    @Post()
+    @Delete(':id')
     async deleteUser(@Param() id: string) {
         try {
-            const user_id = Types.ObjectId.createFromHexString(id);
+            const user_id = new Types.ObjectId(id);
             const user =  await this.usersService.remove(user_id) as any;
             return {"message": "User successfully deleted"}
             // Probably send an email informing the user that he/she has been deleted...
@@ -47,6 +50,7 @@ export class UsersController {
 
         }
     }
+    @AllowAny()
     @Get('all')
     async getUsers(@Query() query: GetUsersQuery) {
         try {

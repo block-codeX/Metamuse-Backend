@@ -29,7 +29,8 @@ export class Project {
     @Prop({ type: [Types.ObjectId], ref: 'User', required: true }) // Specify as an array
     collaborators: Types.ObjectId[];
 
-
+    @Prop({ type: [String], default: []})
+    tags: string[];
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

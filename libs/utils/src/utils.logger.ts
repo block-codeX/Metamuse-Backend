@@ -5,11 +5,12 @@ import {
     HttpException,
     Logger,
     HttpStatus,
+    ConsoleLogger,
   } from '@nestjs/common';
   
   @Catch() // No specific exception type => This will catch all exceptions
   export class AllExceptionsFilter implements ExceptionFilter {
-    private readonly logger = new Logger(AllExceptionsFilter.name);
+    private readonly logger = new ConsoleLogger(AllExceptionsFilter.name);
   
     catch(exception: unknown, host: ArgumentsHost) {
       const ctx = host.switchToHttp();

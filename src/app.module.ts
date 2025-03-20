@@ -11,7 +11,7 @@ import { ChatGateway } from './chat/chat.gateway';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProjectModule } from './project/project.module';
-import { ProjectGateway } from './project/project.gateway';
+import { YjsWebSocketGateway } from './project/yjs.gateway';
 
 @Module({
   imports: [
@@ -28,6 +28,6 @@ import { ProjectGateway } from './project/project.gateway';
     ProjectModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ChatGateway, ProjectGateway],
+  providers: [AppService, YjsWebSocketGateway],
 })
 export class AppModule {}

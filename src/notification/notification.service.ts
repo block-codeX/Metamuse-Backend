@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConsoleLogger, Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import  hbs from 'nodemailer-express-handlebars';
 import { EMAIL_FROM, EMAIL_HOST, EMAIL_PASSWORD, EMAIL_PORT, EMAIL_SECURE, EMAIL_USER } from '@app/utils';
@@ -9,7 +9,7 @@ import { join } from 'path';
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter
-  private readonly logger = new Logger(EmailService.name);
+  private readonly logger = new ConsoleLogger(EmailService.name);
   constructor () {
     this.transporter = nodemailer.createTransport({
       service: 'zoho',

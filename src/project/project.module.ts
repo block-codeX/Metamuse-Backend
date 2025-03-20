@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ProjectService, CRDTService, FileService } from './project.service';
-import { ProjectGateway } from './project.gateway';
 import { ConversationModule } from 'src/conversation/conversation.module';
 import { UsersModule } from 'src/users/users.module';
 import { ConversationService } from 'src/conversation/conversation.service';

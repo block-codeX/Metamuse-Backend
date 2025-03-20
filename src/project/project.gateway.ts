@@ -15,23 +15,21 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { UsersService } from 'src/users/users.service';
 
-import { Injectable, Logger } from '@nestjs/common';
+import { ConsoleLogger, Injectable, Logger } from '@nestjs/common';
 import { CRDTService } from './project.service';
 import { Types } from 'mongoose';
 import * as Y from 'yjs';
 
 
 @WebSocketGateway({
-  cors: {
-    origin: '*', // In production, this should be more restrictive
-  },
-  namespace: 'Project',
+  namespace: "project",
+  cors: { origin: "*"}
 })
 @Injectable()
 export class ProjectGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  private readonly logger = new Logger(ProjectGateway.name);
+  private readonly logger = new ConsoleLogger(ProjectGateway.name);
   private readonly activeUsers = new Map<
     string,
     { userId: string | null; projectId: string | null }
@@ -56,36 +54,18 @@ export class ProjectGateway
     this.logger.log('Project WebSocket Gateway initialized');
   }
 
-  async handleConnection(client: Socket) {
+  async handleConnection(client: any) {
     this.logger.log(`Client connected: ${client.id}`);
-
-    // Authentication should happen here
-    // For example:
-    const token = client.handshake.auth.token;
-    if (!token) {
-      client.disconnect();
-      return;
-    }
-
     try {
-      // Validate user token (implementation depends on your auth system)
-      const userId = await this.validateToken(token);
-      if (!userId) {
-        client.disconnect();
-        return;
-      }
-
-      // Store user connection info
       this.activeUsers.set(client.id, {
-        userId,
+        userId: client.user._id,
         projectId: null, // Will be set when user joins a project
       });
     } catch (error) {
-      this.logger.error(`Authentication error: ${error.message}`);
-      client.disconnect();
+      this.logger.error(`ConnectionError error: ${error.message}`);
     }
   }
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected: ${client.id}`);
 
     // Get user info
@@ -115,6 +95,7 @@ export class ProjectGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { projectId: string },
   ) {
+    this.logger.log("Joining project")
     try {
       const userInfo = this.activeUsers.get(client.id);
       if (!userInfo) {
@@ -124,13 +105,14 @@ export class ProjectGateway
       const { projectId } = data;
 
       // Verify user has access to this project
+      console.log("ProjectId", projectId)
       const project = await this.projectService.findOne(
         new Types.ObjectId(projectId),
       );
+      console.log("userInfo", userInfo)
       const hasAccess = project.collaborators.some(
-        (collaborator) => collaborator.toString() === userInfo.userId,
+        (collaborator) => collaborator.toString() === userInfo.userId?.toString(),
       );
-
       if (!hasAccess) {
         throw new Error('Access denied to project');
       }
@@ -164,7 +146,7 @@ export class ProjectGateway
       });
 
       // Notify others that user joined
-      client.to(`project:${projectId}`).emit('user:joined', {
+      this.server.to(`project:${projectId}`).emit('user:joined', {
         userId: userInfo.userId,
       });
 
@@ -173,8 +155,9 @@ export class ProjectGateway
 
       return { success: true };
     } catch (error) {
+      console.error(error)
       this.logger.error(`Error joining project: ${error.message}`);
-      return { success: false, error: error.message };
+      client.emit("project_error", { success: false, error: error.message });
     }
   }
 
@@ -202,7 +185,7 @@ export class ProjectGateway
     return { success: false, error: 'Not in a project' };
   }
 
-  @SubscribeMessage('update:sync')
+  @SubscribeMessage('y-sync')
   async handleSync(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { update: number[] },
@@ -223,10 +206,11 @@ export class ProjectGateway
       Y.applyUpdate(doc, update);
 
       // Broadcast to all other clients in the same project
-      client.to(`project:${projectId}`).emit('update:sync', {
+      client.to(`project:${projectId}`).emit('sync', {
         update: data.update,
         source: userInfo.userId,
       });
+      console.log("Data syccessfully received ")
 
       // Throttled save to persistence
       this.crdtService.throttledSaveToMongoDB(projectId, doc);
@@ -238,6 +222,37 @@ export class ProjectGateway
     }
   }
 
+  // Add this new handler in ProjectGateway
+@SubscribeMessage('yjs-update')
+async handleYjsUpdate(
+  @ConnectedSocket() client: Socket,
+  @MessageBody() data: { update: number[] },
+) {
+  console.log("Yjs Update")
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo?.projectId) return;
+
+  try {
+    const update = new Uint8Array(data.update);
+    const doc = await this.crdtService.getDocument(userInfo.projectId);
+        
+    // Apply update to the document
+    Y.applyUpdate(doc, update);
+
+    // Broadcast to other clients (except sender)
+    client.broadcast.to(`project:${userInfo.projectId}`).emit('yjs-update', {
+      update: data.update,
+      source: client.id,
+    });
+
+    // Throttled save to persistence
+    this.crdtService.throttledSaveToMongoDB(userInfo.projectId, doc);
+    this.logger.log('Yjs update applied successfully');
+  } catch (error) {
+    console.error(error);
+    this.logger.error(`Yjs sync error: ${error.message}`);
+  }
+}
   @SubscribeMessage('canvas:update')
   async handleCanvasUpdate(
     @ConnectedSocket() client: Socket,
@@ -245,7 +260,7 @@ export class ProjectGateway
   ) {
     const userInfo = this.activeUsers.get(client.id);
     if (!userInfo || !userInfo.projectId) {
-      return { success: false, error: 'Not in a project' };
+      return { success: false, error: 'Not in a project' }; 
     }
 
     try {
@@ -276,7 +291,7 @@ export class ProjectGateway
     if (!userInfo || !userInfo.projectId) {
       return { success: false, error: 'Not in a project' };
     }
-
+    console.log("Reference.....")
     try {
       await this.crdtService.applyFabricObjects(
         userInfo.projectId,

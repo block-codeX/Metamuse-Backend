@@ -1,223 +1,588 @@
-import UserModel, { IUserDocument } from './models'
-import {
-  IntegrityError,
-  NotFoundError,
-  ValidationError,
-  UnauthorizedError,
-  ForbiddenError
-} from '../utils/errors' // Adjust the import path as necessary
-import { PreSignupModel } from './models'
-import { validatePhone, validateUser } from '../utils/validation'
-import { encryptPassword, verifyPassword } from '../authentication/encrypt'
-import speakeasy from 'speakeasy'
-import { type FilterQuery, type SortOrder, type Types } from 'mongoose'
-import { OTP_EXPIRY } from '../config/index'
-import { paginate, PaginatedDocs } from '@/utils/pagination'
-import { deletePreference, deleteProfile } from '@/user/dao'
-interface UserParams {
-  firstName: string
-  phone: string
-  lastName: string
-  email: string
-  password: string
-  otp?: string
+// y-websocket.gateway.ts
+import { 
+  WebSocketGateway, 
+  WebSocketServer, 
+  OnGatewayInit, 
+  OnGatewayConnection, 
+  OnGatewayDisconnect 
+} from '@nestjs/websockets';
+import { Logger, Injectable, Inject } from '@nestjs/common';
+import { Server, Socket } from 'socket.io';
+import * as Y from 'yjs';
+import { setupWSConnection } from 'y-websocket/bin/utils';
+import * as http from 'http';
+import * as WebSocket from 'ws';
+import { ProjectService } from '../project/project.service';
+import { AuthService } from '../auth/auth.service';
+// afterInit(server: Server) {
+  //   server.use(
+  //     AuthWsMiddleware(this.jwtService, this.authService, this.usersService),
+  //   );
+  //   // this.httpServer = http.createServer((req, res) => {
+  //   //   this.logger.log('HTTP request received');
+  //   //   res.writeHead(200, { 'Content-Type': 'text/plain' });
+  //   //   res.end('Y.js WebSocket Server');
+  //   // });
+  //   // this.wss = new WebSocket.Server({ noServer: true });
+
+  //   // // Handle HTTP upgrade requests
+  //   // this.httpServer.on('upgrade', async (request, socket, head) => {
+  //   //   try {
+  //   //     // Extract room name from URL
+  //   //     const url = new URL(request.url, 'http://localhost');
+  //   //     const roomName = url.pathname.slice(1) || url.searchParams.get('room');
+
+  //   //     if (!roomName) {
+  //   //       socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+  //   //       socket.destroy();
+  //   //       return;
+  //   //     }
+
+  //   //     // Extract authorization token
+  //   //     const authHeader = request.headers.authorization;
+  //   //     if (!authHeader) {
+  //   //       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+  //   //       socket.destroy();
+  //   //       return;
+  //   //     }
+
+  //   //     const token = authHeader.split(' ')[1];
+
+  //   //     // Validate token and check access permissions
+  //   //     const isValid = await this.authService.validateTokenAndAccess(
+  //   //       token,
+  //   //       roomName,
+  //   //     );
+  //   //     if (!isValid) {
+  //   //       socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+  //   //       socket.destroy();
+  //   //       return;
+  //   //     }
+
+  //   //     // Handle WebSocket upgrade
+  //   //     this.wss.handleUpgrade(request, socket, head, (ws) => {
+  //   //       this.wss.emit('connection', ws, request, { roomName });
+  //   //     });
+  //   //   } catch (error) {
+  //   //     this.logger.error(`WebSocket upgrade error: ${error.message}`);
+  //   //     socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+  //   //     socket.destroy();
+  //   //   }
+  //   // });
+
+  //   // // Handle WebSocket connections
+  //   // this.wss.on(
+  //   //   'connection',
+  //   //   async (ws: WebSocket, req: http.IncomingMessage, { roomName }) => {
+  //   //     try {
+  //   //       // Get or create a Y.js document for this room
+  //   //       const doc = await this.getOrCreateDoc(roomName);
+
+  //   //       // Setup Y.js WebSocket connection
+  //   //       setupWSConnection(ws, req, {
+  //   //         docName: roomName,
+  //   //         gc: true,
+  //   //       });
+
+  //   //       // Add custom event listeners
+  //   //       ws.on('message', async (message: WebSocket.RawData) => {
+  //   //         // After processing Y.js message, sync to DB
+  //   //         // This is simplified - actual implementation would depend on message type
+  //   //         if (doc && this.docs.has(roomName)) {
+  //   //           await this.projectService.save_to_db(roomName, doc);
+  //   //         }
+  //   //       });
+
+  //   //       this.logger.log(`Client connected to room: ${roomName}`);
+  //   //     } catch (error) {
+  //   //       this.logger.error(
+  //   //         `Error handling WebSocket connection: ${error.message}`,
+  //   //       );
+  //   //       ws.close(1011, 'Internal server error');
+  //   //     }
+  //   //   },
+  //   // );
+
+  //   // // Start the server
+  //   // const port = 8001;
+  //   // this.httpServer.listen(port, () => {
+  //   //   this.logger.log(`Y.js WebSocket server running on port ${port}`);
+  //   // });
+  // }
+  // Handle client connection
+ 
+@WebSocketGateway({
+  path: '/yjs-ws',
+  port: 3001, // Different port from your main app
+})
+@Injectable()
+export class YjsWebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(YjsWebSocketGateway.name);
+  private wss: WebSocket.Server;
+  private httpServer: http.Server;
+  private docs: Map<string, Y.Doc> = new Map();
+
+  constructor(
+    private readonly projectService: ProjectService,
+    private readonly authService: AuthService,
+  ) {}
+
+  afterInit(server: Server) {
+    // Create HTTP server
+    this.httpServer = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Y.js WebSocket Server');
+    });
+
+    // Create WebSocket server
+    this.wss = new WebSocket.Server({ noServer: true });
+
+    // Handle HTTP upgrade requests
+    this.httpServer.on('upgrade', async (request, socket, head) => {
+      try {
+        // Extract room name from URL
+        const url = new URL(request.url, 'http://localhost');
+        const roomName = url.pathname.slice(1) || url.searchParams.get('room');
+        
+        if (!roomName) {
+          socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        // Extract authorization token
+        const authHeader = request.headers.authorization;
+        if (!authHeader) {
+          socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        const token = authHeader.split(' ')[1];
+        
+        // Validate token and check access permissions
+        const isValid = await this.authService.validateTokenAndAccess(token, roomName);
+        if (!isValid) {
+          socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+          socket.destroy();
+          return;
+        }
+
+        // Handle WebSocket upgrade
+        this.wss.handleUpgrade(request, socket, head, (ws) => {
+          this.wss.emit('connection', ws, request, { roomName });
+        });
+      } catch (error) {
+        this.logger.error(`WebSocket upgrade error: ${error.message}`);
+        socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+        socket.destroy();
+      }
+    });
+
+    // Handle WebSocket connections
+    this.wss.on('connection', async (ws: WebSocket, req: http.IncomingMessage, { roomName }) => {
+      try {
+        // Get or create a Y.js document for this room
+        const doc = await this.getOrCreateDoc(roomName);
+        
+        // Setup Y.js WebSocket connection
+        setupWSConnection(ws, req, { 
+          docName: roomName,
+          gc: true,
+        });
+
+        // Add custom event listeners
+        ws.on('message', async (message: WebSocket.RawData) => {
+          // After processing Y.js message, sync to DB
+          // This is simplified - actual implementation would depend on message type
+          if (doc && this.docs.has(roomName)) {
+            await this.projectService.save_to_db(roomName, doc);
+          }
+        });
+
+        this.logger.log(`Client connected to room: ${roomName}`);
+      } catch (error) {
+        this.logger.error(`Error handling WebSocket connection: ${error.message}`);
+        ws.close(1011, 'Internal server error');
+      }
+    });
+
+    // Start the server
+    const port = 3001;
+    this.httpServer.listen(port, () => {
+      this.logger.log(`Y.js WebSocket server running on port ${port}`);
+    });
+  }
+
+  // Handle client connection
+  handleConnection(client: Socket) {
+    this.logger.log(`Client connected: ${client.id}`);
+  }
+
+  // Handle client disconnection
+  handleDisconnect(client: Socket) {
+    this.logger.log(`Client disconnected: ${client.id}`);
+  }
+
+  // Get or create a Y.js document for a room
+  private async getOrCreateDoc(roomName: string): Promise<Y.Doc> {
+    // Check if we already have this doc in memory
+    if (this.docs.has(roomName)) {
+      return this.docs.get(roomName);
+    }
+
+    // Create a new Y.js document
+    const doc = new Y.Doc();
+    
+    try {
+      // Load document from database
+      await this.projectService.load_from_db(roomName, doc);
+      
+      // Set up document update handler for persistence
+      doc.on('update', async (update: Uint8Array, origin: any) => {
+        // Only sync to DB if the update is from a client (not from our own loading)
+        if (origin !== 'database-load') {
+          await this.projectService.save_to_db(roomName, doc);
+        }
+      });
+      
+      // Store the document in memory
+      this.docs.set(roomName, doc);
+      
+      return doc;
+    } catch (error) {
+      this.logger.error(`Error loading document for room ${roomName}: ${error.message}`);
+      // Store the empty document in memory
+      this.docs.set(roomName, doc);
+      return doc;
+    }
+  }
 }
-export async function preSignUp(
-  phone: string
-): Promise<{ token: string, expiry: Date }> {
-  if (!validatePhone(phone)) {
-    throw new ValidationError('Invalid phone number')
+
+
+@SubscribeMessage('project:leave')
+async handleLeaveProject(@ConnectedSocket() client: WebSocket) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (userInfo && userInfo.projectId) {
+
+
+
+
+    client.leave(`project:${userInfo.projectId}`);
+
+    // Update user info
+    userInfo.projectId = null;
+    this.activeUsers.set(client.id, userInfo);
+
+    // Notify others
+    this.server.to(`project:${userInfo.projectId}`).emit('user:left', {
+      userId: userInfo.userId,
+    });
+
+    // Broadcast updated user list
+    this.broadcastProjectUsers(userInfo.projectId as any);
+
+    return { success: true };
   }
-  const secret = speakeasy.generateSecret({ length: 20 })
-  let profile
-  profile = await PreSignupModel.findOne({ phone })
-  if (profile == null) {
-    profile = await PreSignupModel.create({
-      phone,
-      secret: secret.base32
-    })
-  }
-  const token = speakeasy.totp({
-    secret: profile.secret,
-    encoding: 'base32'
-  })
-  profile.otpExpires = new Date(Date.now() + OTP_EXPIRY)
-  await profile.save()
-  return { token, expiry: profile.otpExpires }
+
+  return { success: false, error: 'Not in a project' };
 }
-export async function newOtp(
-  phone: string,
-  model: 'pre' | 'user' = 'user'
-): Promise<{ token: string, expiry: Date }> {
-  if (!validatePhone(phone)) {
-    throw new ValidationError('Invalid phone number')
+
+@SubscribeMessage('y-sync')
+async handleSync(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { update: number[] },
+) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
   }
-  let profile
-  if (model === 'pre') profile = await PreSignupModel.findOne({ phone })
-  else if (model === 'user') profile = await UserModel.findOne({ phone })
-  if (!profile || profile == null) { throw new NotFoundError('User with phone number not found') }
-  const token = speakeasy.totp({
-    secret: profile.secret,
-    encoding: 'base32'
-  })
-  await profile.save()
-  return { token, expiry: new Date(Date.now() + OTP_EXPIRY) }
-}
-export async function verifyOtp(
-  phone: string,
-  token: string,
-  model: 'pre' | 'user'
-): Promise<{ message: string, expires: Date }> {
-  if (!validatePhone(phone)) {
-    throw new ValidationError('Invalid phone number')
-  }
-  if (token.length === 0) {
-    throw new UnauthorizedError('Invalid OTP')
-  }
-  let profile
-  if (model === 'pre') profile = await PreSignupModel.findOne({ phone })
-  else if (model === 'user') profile = await UserModel.findOne({ phone })
-  if (profile == null) throw new NotFoundError('User with phone number not found')
-  const isVerified = speakeasy.totp.verify({
-    secret: profile.secret,
-    encoding: 'base32',
-    token,
-    window: 14 // Allowing for a 7-minute (14 x 30 sec) time window
-  })
-  if (!isVerified) {
-    throw new UnauthorizedError('Invalid or expired OTP')
-  }
-  // @ts-expect-error
-  profile.otp = token.toString() + "ex"
-  profile.otpExpires = new Date(Date.now() + OTP_EXPIRY)
-  await profile.save()
-  return { message: 'OTP verified successfully', expires: profile.otpExpires }
-}
-export async function signUp({
-  phone,
-  firstName,
-  lastName,
-  email,
-  password,
-  otp
-}: UserParams): Promise<IUserDocument> {
-  if (!validatePhone(phone)) {
-    throw new ValidationError('Invalid phone number')
-  }
-  const profile = await PreSignupModel.findOne({ phone })
-  if (profile == null) {
-    throw new NotFoundError('User with phone number not found')
-  }
-  if (profile.otpExpires < new Date(Date.now())) {
-    throw new ForbiddenError('OTP expired request a new one')
-  }
-  // @ts-expect-error
-  if (profile.otp != otp)
-    throw new ForbiddenError('Invalid otp request a new one')
-  // @ts-expect-error
-  delete profile.otp
-  profile.otpExpires = new Date(Date.now())
-  await profile.save()
-  if (
-    (await UserModel.countDocuments({ $or: [{ email }, { phone }] }).exec()) > 0
-  ) {
-    throw new IntegrityError(
-      'An account with that email or phone number already exists'
-    )
-  }
+
   try {
-    validateUser({ firstName, lastName, email, phone, password })
-  } catch (err) {
-    if (err instanceof Error) {
-      throw new ValidationError(err.message)
-    } else {
-      throw new ValidationError('Unknown error occurred')
-    }
-  }
-  const hashedPassword = encryptPassword(password)
-  const user = await UserModel.create({
-    firstName,
-    lastName,
-    phone,
-    email,
-    password: hashedPassword
-  })
-  await PreSignupModel.deleteOne({ _id: profile._id })
-  return user
-}
-export async function login(
-  email: string,
-  password: string
-): Promise<IUserDocument> {
-  const user = await UserModel.findOne({ email })
-  if (!user) throw new NotFoundError(`User with email ${email} not found`)
-  if (!verifyPassword(password, user.password)) {
-    throw new UnauthorizedError('Invalid password', 401, 'Login failed')
-  }
-  return user
-}
-export async function getUser(id: Types.ObjectId): Promise<IUserDocument> {
-  const user = await UserModel.findOne({ _id: id }).lean().exec()
-  if (user == null) throw new NotFoundError('User not found')
-  return user
-}
-export async function updateUser(
-  id: Types.ObjectId,
-  { phone, firstName, lastName, email, password }: Partial<UserParams>
-): Promise<IUserDocument> {
-  const updateData: any = {} // Partial<UserParams> = {};
+    const { projectId } = userInfo;
+    const update = new Uint8Array(data.update);
 
-  if (phone) {
-    if (!validatePhone(phone)) {
-      throw new ValidationError('Invalid phone number')
-    }
-    updateData.phone = phone
-  }
+    // Get document
+    const doc = await this.crdtService.getDocument(projectId);
 
-  if (firstName) updateData.firstName = firstName
-  if (lastName) updateData.lastName = lastName
-  if (email) updateData.email = email
-  if (password) {
-    updateData.password = encryptPassword(password)
-    updateData.lastAuthChange = new Date(Date.now())
-  }
+    // Apply update to the document
+    Y.applyUpdate(doc, update);
 
-  const updatedUser = await UserModel.findByIdAndUpdate(id, updateData, {
-    new: true
-  })
-    .lean()
-    .exec()
-  if (!updatedUser) {
-    throw new NotFoundError('User not found')
+    // Broadcast to all other clients in the same project
+    client.to(`project:${projectId}`).emit('sync', {
+      update: data.update,
+      source: userInfo.userId,
+    });
+    console.log('Data syccessfully received ');
+
+    // Throttled save to persistence
+    this.crdtService.throttledSaveToMongoDB(projectId, doc);
+
+    return { success: true };
+  } catch (error) {
+    this.logger.error(`Error syncing update: ${error.message}`);
+    return { success: false, error: error.message };
   }
-  return updatedUser
 }
-export async function deleteUser(id: Types.ObjectId): Promise<IUserDocument> {
-  const results = await Promise.allSettled([
-    deleteProfile(id),
-    deletePreference(id)
-  ]);
-  results.forEach(result => {
-    if (result.status === 'rejected' && !(result.reason instanceof NotFoundError)) {
-      throw result.reason
-    }
+
+// Add this new handler in ProjectGateway
+@SubscribeMessage('yjs-update')
+async handleYjsUpdate(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { update: number[] },
+) {
+  console.log('Yjs Update');
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo?.projectId) return;
+
+  try {
+    const update = new Uint8Array(data.update);
+    const doc = await this.crdtService.getDocument(userInfo.projectId);
+
+    // Apply update to the document
+    Y.applyUpdate(doc, update);
+
+    // Broadcast to other clients (except sender)
+    client.broadcast.to(`project:${userInfo.projectId}`).emit('yjs-update', {
+      update: data.update,
+      source: client.id,
+    });
+
+    // Throttled save to persistence
+    this.crdtService.throttledSaveToMongoDB(userInfo.projectId, doc);
+    this.logger.log('Yjs update applied successfully');
+  } catch (error) {
+    console.error(error);
+    this.logger.error(`Yjs sync error: ${error.message}`);
+  }
+}
+@SubscribeMessage('canvas:update')
+async handleCanvasUpdate(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { settings: any },
+) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+
+  try {
+    await this.crdtService.applyCanvasSettings(
+      userInfo.projectId,
+      data.settings,
+    );
+
+    // Broadcast canvas update to others
+    client.to(`project:${userInfo.projectId}`).emit('canvas:update', {
+      settings: data.settings,
+      source: userInfo.userId,
+    });
+
+    return { success: true };
+  } catch (error) {
+    this.logger.error(`Error updating canvas: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+@SubscribeMessage('object:add')
+async handleObjectAdd(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { objects: any[] },
+) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+  console.log('Reference.....');
+  try {
+    await this.crdtService.applyFabricObjects(
+      userInfo.projectId,
+      data.objects,
+    );
+
+    // Broadcast to others
+    client.to(`project:${userInfo.projectId}`).emit('object:add', {
+      objects: data.objects,
+      source: userInfo.userId,
+    });
+
+    return { success: true };
+  } catch (error) {
+    this.logger.error(`Error adding objects: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+@SubscribeMessage('object:update')
+async handleObjectUpdate(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { objectId: string; properties: any },
+) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+
+  try {
+    await this.crdtService.updateFabricObject(
+      userInfo.projectId,
+      data.objectId,
+      data.properties,
+    );
+
+    // Broadcast to others
+    client.to(`project:${userInfo.projectId}`).emit('object:update', {
+      objectId: data.objectId,
+      properties: data.properties,
+      source: userInfo.userId,
+    });
+
+    return { success: true };
+  } catch (error) {
+    this.logger.error(`Error updating object: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+@SubscribeMessage('object:delete')
+async handleObjectDelete(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { objectIds: string[] },
+) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+
+  try {
+    await this.crdtService.deleteFabricObjects(
+      userInfo.projectId,
+      data.objectIds,
+    );
+
+    // Broadcast to others
+    client.to(`project:${userInfo.projectId}`).emit('object:delete', {
+      objectIds: data.objectIds,
+      source: userInfo.userId,
+    });
+
+    return { success: true };
+  } catch (error) {
+    this.logger.error(`Error deleting objects: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+@SubscribeMessage('snapshot:create')
+async handleCreateSnapshot(@ConnectedSocket() client: WebSocket) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+
+  try {
+    const snapshotId = await this.crdtService.createSnapshot(
+      userInfo.projectId,
+      userInfo.userId as string,
+    );
+
+    // Notify everyone in the project about the new snapshot
+    this.server.to(`project:${userInfo.projectId}`).emit('snapshot:created', {
+      snapshotId,
+      creator: userInfo.userId,
+      timestamp: Date.now(),
+    });
+
+    return { success: true, snapshotId };
+  } catch (error) {
+    this.logger.error(`Error creating snapshot: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+@SubscribeMessage('project:fork')
+async handleForkProject(@ConnectedSocket() client: WebSocket) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+
+  try {
+    // Fork the project
+    const forkedProject = await this.crdtService.forkProject(
+      userInfo.projectId,
+      userInfo.userId as string,
+    );
+
+    return {
+      success: true,
+      project: {
+        id: forkedProject._id,
+        title: forkedProject.title,
+        description: forkedProject.description,
+      },
+    };
+  } catch (error) {
+    this.logger.error(`Error forking project: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+@SubscribeMessage('cursor:position')
+handleCursorPosition(
+  @ConnectedSocket() client: WebSocket,
+  @MessageBody() data: { x: number; y: number },
+) {
+  const userInfo = this.activeUsers.get(client.id);
+  if (!userInfo || !userInfo.projectId) {
+    return { success: false, error: 'Not in a project' };
+  }
+
+  // Broadcast cursor position to other users in the project
+  client.to(`project:${userInfo.projectId}`).emit('cursor:position', {
+    userId: userInfo.userId,
+    position: data,
   });
-  const user = await UserModel.findOneAndDelete({ _id: id });
-  if (user == null) throw new NotFoundError('User not found');
-  return user;
+
+  return { success: true };
 }
-export async function getUsers({
-  filters = {},
-  page = 1,
-  limit = 10,
-  order = -1,
-  sortField = 'email'
-}: {
-  filters: FilterQuery<IUserDocument>
-  page: number
-  limit: number
-  order: SortOrder
-  sortField: string
-}): Promise<PaginatedDocs<IUserDocument>> {
-  const fieldsToExclude = ['-password', '-secret', '-otpExpires', '-lastAuthChange', '-__v']
-  return await paginate(UserModel, filters, { page, limit, sortField, sortOrder: order }, fieldsToExclude)
+
+// Helper methods
+private async validateToken(token: string): Promise<string | null> {
+  // Implementation depends on your authentication system
+  // This is a placeholder for the actual validation logic
+  // Return the userId if token is valid, null otherwise
+  try {
+    // Example: const user = await this.authService.validateToken(token);
+    // return user?._id?.toString() || null;
+
+    // Placeholder - replace with actual implementation
+    return token ? 'user-id-from-token' : null;
+  } catch (error) {
+    this.logger.error(`Token validation error: ${error.message}`);
+    return null;
+  }
+}
+
+private async broadcastProjectUsers(projectId: string) {
+  // Get all connected users for this project
+  const projectUsers = Array.from(this.activeUsers.entries())
+    .filter(([_, info]) => info.projectId === projectId)
+    .map(([_, info]) => new Types.ObjectId(info.userId as string));
+
+  // Get user details from database
+  const userDetails = await this.usersService.findAll({
+    filters: { _id: { $in: projectUsers } },
+  } as any);
+
+  // Broadcast to all clients in the project
+  this.server.to(`project:${projectId}`).emit('project:users', {
+    users: userDetails.docs.map((user: any) => ({
+      id: user._id,
+      name: user.firstName,
+      email: user.email,
+      // Other non-sensitive user data
+    })),
+  });
+}

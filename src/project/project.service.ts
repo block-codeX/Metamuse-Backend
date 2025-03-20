@@ -1,11 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConsoleLogger, Inject, Injectable, Logger } from '@nestjs/common';
 import * as Y from 'yjs';
 import { Server, Socket } from 'socket.io';
 import { RedisPersistence, PersistenceDoc } from 'y-redis';
 import { ConversationService } from 'src/conversation/conversation.service';
 import { InjectModel } from '@nestjs/mongoose';
-// @ts-ignore
-import { WebsocketProvider } from 'y-websocket';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Project, ProjectDocument } from './project.schema';
 import BaseError, {
@@ -72,12 +70,27 @@ export class ProjectService {
 
   async loadFromMongoDB(projectId: Types.ObjectId, doc: Y.Doc): Promise<void> {
     const project = await this.findOne(projectId);
+    if (!project.gridFsId) {
+      // Create new gridFs document and save it to the project
+      const update = Y.encodeStateAsUpdate(doc);
+      const stream = new Readable();
+      stream.push(update);
+      stream.push(null); // Signal end of stream
+      const gridFsId = await this.fileService.saveFile(stream, `project-${projectId}-state`);
+      project.gridFsId = gridFsId.toString();
+      await project.save();
+    }
     const buffer = await this.fileService.findOne(new Types.ObjectId(project.gridFsId));
     const update = new Uint8Array(buffer);
     Y.applyUpdate(doc, update);
   } 
    async create(data: CreateProjectDto) {
-    const { title, description, creator, isForked = false, forkedFrom = null } = data
+    const { title, description, creator, isForked = false, forkedFrom = null, tags=[] } = data
+    const newConversation = await this.conversationService.create({
+      name: title,
+      creator: creator._id,
+      isGroup: true,
+    });
     const createData = {
       title,
       description,
@@ -85,15 +98,11 @@ export class ProjectService {
       forkedFrom,
       creator: creator._id,
       collaborators: [creator._id],
+      conversation: newConversation._id,
+      tags
     };
     const project = await this.projectModel.create(createData);
     if (!project) throw new BaseError('Error creating project');
-    const newConversation = await this.conversationService.create({
-      name: title,
-      creator: creator._id,
-      isGroup: true,
-    });
-    project.conversation = newConversation._id;
     await project.save();
     return project;
   }
@@ -183,7 +192,7 @@ export class ProjectService {
 
 @Injectable()
 export class CRDTService {
-  private readonly logger = new Logger(CRDTService.name);
+  private readonly logger = new ConsoleLogger(CRDTService.name);
   private documents = new Map<string, Y.Doc>();
   private persistence = new Map<string, PersistenceDoc>();
 
@@ -196,24 +205,29 @@ export class CRDTService {
 
   ) {}
 
-  async getDocument(projectId: string): Promise<Y.Doc> {
-    if (!this.documents.has(projectId)) {
-      return await this.createDocument(projectId);
-    }
-    return this.documents.get(projectId) as Y.Doc;
+  async getDocument(projectId: string, existingDoc: Y.Doc): Promise<Y.Doc> {
+    return new Promise(async (resolve) => {
+        const doc = await this.createDocument(projectId, existingDoc);
+        resolve(doc);
+    });
   }
-  async createDocument(projectId: string): Promise<Y.Doc> {
-    const doc = new Y.Doc();
-    const yRedis = new RedisPersistence(this.redisConfig);
-    const persistenceDoc = yRedis.bindState(projectId, doc);
-    this.documents.set(projectId, doc);
-    this.persistence.set(projectId, persistenceDoc);
-    doc.getMap('metadata');
-    doc.getMap('metadata').set('projectId', projectId);
-    doc.getMap('canvas');
-    doc.getMap('objects');
-    await this.projectService.loadFromMongoDB(new Types.ObjectId(projectId), doc);
-    return doc;
+  
+  async createDocument(projectId: string, existingDoc: Y.Doc): Promise<Y.Doc> {
+    return new Promise(async (resolve) => {
+      existingDoc.getMap('metadata').set('projectId', projectId);
+      // Load data from MongoDB
+      await this.projectService.loadFromMongoDB(new Types.ObjectId(projectId), existingDoc);
+  
+      // Setup update listener
+      // doc.on('update', (update: Uint8Array, origin: any) => {
+      //   if (origin !== 'local') {
+      //     console.log("Waaaa")
+      //     this.throttledSaveToMongoDB(projectId, doc);
+      //   }
+      // });
+  
+      resolve(existingDoc);
+    });
   }
   // 3. Apply fabric.js objects
   async applyFabricObjects(
@@ -360,7 +374,8 @@ export class CRDTService {
         description: originalProject.description,
         creator: userWhoForked._id,
         isForked: true,
-        forkedFrom: projId
+        forkedFrom: projId,
+        tags: originalProject.tags
       }
     );
   
@@ -472,6 +487,7 @@ export class CRDTService {
     // Update the project with the new file ID
     project.gridFsId = gridFsId;
     await project.save();
+    this.logger.log(`Saved project state to MongoDB for project ${projectId}`);
   }
   // Clean up resources
   async cleanUp(projectId: string): Promise<void> {

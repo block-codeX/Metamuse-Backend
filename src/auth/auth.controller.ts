@@ -14,11 +14,12 @@ import {
   ForbiddenException,
   UseGuards,
   Get,
+  Res,
 } from '@nestjs/common';
-import { omit } from 'lodash'
+import { omit } from 'lodash';
 import { UsersService } from 'src/users/users.service';
 import { AuthService, OTPService } from './auth.service';
-import { AllowAny } from './auth.decorator';
+import { AllowAny, Cookies } from './auth.decorator';
 import {
   ForbiddenError,
   IntegrityError,
@@ -39,6 +40,7 @@ import {
   signupSchema,
 } from './auth.dto';
 import { OTPRequired } from './auth.guard';
+import { FastifyReply } from 'fastify';
 
 @Controller('auth')
 export class AuthController {
@@ -52,11 +54,18 @@ export class AuthController {
   @HttpCode(200)
   @Post('login')
   @UsePipes(new ZodValidationPipe(loginSchema))
-  async login(@Body() body: LoginDto): Promise<any> {
+  async login(@Body() body: LoginDto, @Res() res): Promise<any> {
     try {
       const user = await this.usersService.loginUser(body.email, body.password);
-      const tokens = await this.authService.getTokens(user);
-      return tokens;
+      const { refreshToken, ...tokens } =
+        await this.authService.getTokens(user);
+      res.setCookie('refresh', refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+      res.send(tokens);
+      return;
     } catch (error) {
       if (error instanceof NotFoundError)
         throw new NotFoundException(error.message, error.name);
@@ -72,8 +81,8 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(signupSchema))
   async signup(@Body() body: SignupDto): Promise<any> {
     try {
-      await this.usersService.signupUser(body);
-      return { message: 'Signup successful, Proceed to verify your account' };
+      const user = await this.usersService.signupUser(body);
+      return { message: 'Signup successful, Proceed to verify your account', userId: user._id };
     } catch (error) {
       if (error instanceof IntegrityError)
         throw new ConflictException(error.message, error.name);
@@ -84,11 +93,30 @@ export class AuthController {
   @AllowAny()
   @HttpCode(200)
   @Post('refresh')
-  @UsePipes(new ZodValidationPipe(logoutSchema))
-  async refresh(@Body() body: LogoutDto): Promise<any> {
+  async refresh(
+    @Body() body: any,
+    @Request() req,
+    @Cookies('refresh') refresh,
+    @Res() res,
+  ): Promise<any> {
     try {
-      const tokens = await this.authService.refreshTokens(body.token);
-      return tokens;
+      let token = body?.token;
+      if (!token) {
+        token = refresh;
+        if (!token) {
+          res.send({ message: 'Token not provided' });
+          return;
+        };
+      }
+      const { refreshToken, ...tokens } =
+        await this.authService.refreshTokens(token);
+        res.clearCookie('refresh');
+      res.setCookie('refresh', refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+      res.send(tokens);
     } catch (error) {
       if (error instanceof ForbiddenError)
         throw new ForbiddenException(error.message);
@@ -101,12 +129,26 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UsePipes(new ZodValidationPipe(logoutSchema))
-  async logout(@Request() req, @Body() body: LogoutDto): Promise<any> {
+  async logout(
+    @Request() req,
+    @Cookies('refresh') refresh,
+    @Body() body: any,
+    @Res() res,
+  ): Promise<any> {
     try {
+      let token = body?.token;
+      if (!token) {
+        token = refresh;
+        console.log('my token', token);
+        if (!token){
+          res.send({ message: 'Successfully logged out' });
+          return;
+        };
+      }
       await this.authService.blacklistToken(req.token, 'access');
-      await this.authService.blacklistToken(body.token, 'refresh');
-      return { message: 'Successfully logged out' };
+      await this.authService.blacklistToken(token, 'refresh');
+      res.clearCookie('refresh');
+      res.send({ message: 'Successfully logged out' });
     } catch (error) {
       if (error instanceof ValidationError)
         throw new BadRequestException(error.message);
@@ -181,9 +223,9 @@ export class AuthController {
         body.multiUse,
       );
       this.otpservice.sendOTP(otp, user);
-      return { message: 'OTP sent successfully'};
+      return { message: 'OTP sent successfully' };
     } catch (error) {
-      throw error
+      throw error;
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);
@@ -207,7 +249,11 @@ export class AuthController {
   @Get('account')
   async profile(@Request() req): Promise<any> {
     try {
-      const sanitizedResult = omit(req.user.toJSON(), ['password', 'lastAuthChange', '__v'])
+      const sanitizedResult = omit(req.user.toJSON(), [
+        'password',
+        'lastAuthChange',
+        '__v',
+      ]);
       return sanitizedResult;
     } catch (error) {
       console.log('Error', error);
