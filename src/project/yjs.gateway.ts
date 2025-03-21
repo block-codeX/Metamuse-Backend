@@ -15,12 +15,14 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
 import { Socket } from 'socket.io';
 import * as http from 'http';
-import { ConsoleLogger, Injectable, Logger } from '@nestjs/common';
+import { ConsoleLogger, Inject, Injectable, Logger } from '@nestjs/common';
 import { CRDTService } from './project.service';
 import { Types } from 'mongoose';
 import * as Y from 'yjs';
 import { Server, WebSocket } from 'ws';
+// @ts-ignore
 import * as utils from 'y-websocket/bin/utils';
+import { RedisPersistence } from 'y-redis';
 
 interface ClientInfo {
   client: WebSocket;
@@ -32,9 +34,7 @@ interface ClientInfo {
   cors: { origin: '*' },
 })
 @Injectable()
-export class YjsWebSocketGateway
-  implements OnGatewayConnection
-{
+export class YjsWebSocketGateway implements OnGatewayConnection {
   private readonly logger = new ConsoleLogger(YjsWebSocketGateway.name);
   @WebSocketServer()
   server: Server;
@@ -44,6 +44,7 @@ export class YjsWebSocketGateway
     private readonly projectService: ProjectService,
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
+    @Inject('REDIS_CONFIG') private readonly redisConfig: any,
   ) {}
 
   async handleConnection(client: WebSocket, request: Request) {
@@ -60,56 +61,26 @@ export class YjsWebSocketGateway
         this.authService,
         this.usersService,
       );
+      const persistence = new RedisPersistence(this.redisConfig);
+      utils.setPersistence(persistence);
       utils.setupWSConnection(client, request, {
         docName: projectId,
         gc: true,
-        loader: this.getOrCreateDoc.bind(this),
-        saver: this.crdtService.saveToMongoDB.bind(this.crdtService), // Bind the correct context
+        persistence,
       });
-      // const initialState = Y.encodeStateAsUpdate(doc);
-
     } catch (error) {
+      console.error(error);
       this.logger.error(`Connection error: ${error.message}`);
       if (client.readyState === WebSocket.OPEN) {
         client.close(1011, error.message);
       }
     }
   }
-  @SubscribeMessage("project:init")
-  async handleProjectInit(client: Socket,) {
-      // // Send initial data to the joining user
-      // client.emit('project:init', {
-      //   update: Array.from(initialState),
-      // });
-    this.logger.log(`Client joined room:`); 
-  }
+  
 
   // Handle client disconnection
   // handleDisconnect(client: Socket) {
   //   this.logger.log(`Client disconnected: ${client.id}`);
   // }
-  async getOrCreateDoc(roomName: string, client, doc): Promise<Y.Doc> {
-    const project = await this.projectService.findOne(
-      new Types.ObjectId(roomName),
-    );
-    const hasAccess = project.collaborators.some(
-      (collaborator) => collaborator.toString() === client.user._id?.toString(),
-    );
-    if (!hasAccess) {
-      throw new Error('Access denied');
-    }
-    // Load document data into the Y.Doc
-    await this.crdtService.getDocument(roomName, doc);
-    const initialObjects = doc.getMap('objects').toJSON();
-    const initialCanvasSettings = doc.getMap('canvas').toJSON();
-    client.send(JSON.stringify({
-      type: 'initial-state',
-      data: {
-        objects: initialObjects,
-        canvas: initialCanvasSettings,
-      },
-    }));
-    this.logger.log(`Loaded document form db ${roomName}`);
-    return doc;
-  }
+
 }

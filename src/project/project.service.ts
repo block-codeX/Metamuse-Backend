@@ -11,7 +11,13 @@ import BaseError, {
   NotFoundError,
   ValidationError,
 } from '@app/utils/utils.errors';
-import { CONVERSATION_MAX_MEMBERS, DB_CONNECTION_STRING, DB_NAME, PaginatedDocs, paginate } from '@app/utils';
+import {
+  CONVERSATION_MAX_MEMBERS,
+  DB_CONNECTION_STRING,
+  DB_NAME,
+  PaginatedDocs,
+  paginate,
+} from '@app/utils';
 import { MongoClient, GridFSBucket, GridFSFile, Filter } from 'mongodb';
 import { Readable } from 'stream';
 import { CreateProjectDto } from './project.dto';
@@ -65,7 +71,6 @@ export class FileService {
   }
 }
 
-
 @Injectable()
 export class ProjectService {
   constructor(
@@ -73,25 +78,39 @@ export class ProjectService {
     private fileService: FileService,
     @InjectModel(Project.name) private projectModel: Model<Project>,
   ) {}
+  private readonly logger = new ConsoleLogger(ProjectService.name);
 
-  async loadFromMongoDB(projectId: Types.ObjectId, doc: Y.Doc): Promise<void> {
+  async loadFromMongoDB(projectId: Types.ObjectId, doc: Y.Doc): Promise<any> {
     const project = await this.findOne(projectId);
     if (!project.gridFsId) {
-      // Create new gridFs document and save it to the project
+      // Save initial state if none exists
       const update = Y.encodeStateAsUpdate(doc);
+      const updateBuffer = Buffer.from(update);
       const stream = new Readable();
-      stream.push(update);
-      stream.push(null); // Signal end of stream
+      stream.push(updateBuffer);
+      stream.push(null);
       const gridFsId = await this.fileService.saveFile(stream, `project-${projectId}-state`);
       project.gridFsId = gridFsId.toString();
       await project.save();
     }
+    this.logger.log("GridFS file ID:", project.gridFsId);
     const buffer = await this.fileService.findOne(new Types.ObjectId(project.gridFsId));
-    const update = new Uint8Array(buffer);
-    Y.applyUpdate(doc, update);
-  } 
-   async create(data: CreateProjectDto) {
-    const { title, description, creator, isForked = false, forkedFrom = null, tags=[] } = data
+    this.logger.log(`Loaded update with length: ${buffer.length}`);
+    // Ensure it's a Uint8Array
+   const value =  new Uint8Array(buffer);
+    Y.applyUpdate(doc, value);
+    return value;
+  }
+  
+  async create(data: CreateProjectDto) {
+    const {
+      title,
+      description,
+      creator,
+      isForked = false,
+      forkedFrom = null,
+      tags = [],
+    } = data;
     const newConversation = await this.conversationService.create({
       name: title,
       creator: creator._id,
@@ -105,14 +124,13 @@ export class ProjectService {
       creator: creator._id,
       collaborators: [creator._id],
       conversation: newConversation._id,
-      tags
+      tags,
     };
     const project = await this.projectModel.create(createData);
     if (!project) throw new BaseError('Error creating project');
     await project.save();
     return project;
   }
-  
 
   async findAll({
     filters = {},
@@ -120,7 +138,7 @@ export class ProjectService {
     limit = 10,
     order = -1,
     sortField = '-createdAt',
-    full=false
+    full = false,
   }: {
     filters: FilterQuery<Project>;
     full: boolean;
@@ -130,38 +148,55 @@ export class ProjectService {
     sortField: string;
   }): Promise<PaginatedDocs<Project>> {
     const fieldsToExclude = ['-__v'];
-    const populateFields =  [{ path: 'creator', select: ['-__v', '-password', '-lastAuthChange'] }];
-    if (full) populateFields.push({ path: 'collaborators', select: ['-__v', '-password', '-lastAuthChange']})
+    const populateFields = [
+      { path: 'creator', select: ['-__v', '-password', '-lastAuthChange'] },
+    ];
+    if (full)
+      populateFields.push({
+        path: 'collaborators',
+        select: ['-__v', '-password', '-lastAuthChange'],
+      });
     return await paginate(
       this.projectModel,
       filters,
       { page, limit, sortField, sortOrder: order },
       fieldsToExclude,
-      populateFields as any
+      populateFields as any,
     );
   }
 
-  async findOne(id?: Types.ObjectId, fields: any = {}, full = false): Promise<ProjectDocument> {
+  async findOne(
+    id?: Types.ObjectId,
+    fields: any = {},
+    full = false,
+  ): Promise<ProjectDocument> {
     if (id) fields._id = id;
     const project = await this.projectModel.findOne(fields);
     if (!project) throw new NotFoundError('Project not found');
     if (full) {
       await project.populate({
         path: 'creator collaborators',
-        select: '-password -lastAuthChange'
+        select: '-password -lastAuthChange',
       });
     }
     return project;
   }
 
-  async findSnapshots(projectId: Types.ObjectId, user?: string): Promise<any[]> {
-     let regex = `snapshot-${projectId}`
-    if (user)
-      regex += `-${user}`
+  async findSnapshots(
+    projectId: Types.ObjectId,
+    user?: string,
+  ): Promise<any[]> {
+    let regex = `snapshot-${projectId}`;
+    if (user) regex += `-${user}`;
 
     const project = await this.findOne(projectId);
-    const snapshots = await this.fileService.findFiles({ filename: { $regex: regex } });
-    return snapshots.map((snapshot) => ({name: snapshot.filename, id: snapshot._id.toString()}));
+    const snapshots = await this.fileService.findFiles({
+      filename: { $regex: regex },
+    });
+    return snapshots.map((snapshot) => ({
+      name: snapshot.filename,
+      id: snapshot._id.toString(),
+    }));
   }
   async update(id: Types.ObjectId, title?: string, description?: string) {
     const project = await this.findOne(id);
@@ -179,7 +214,10 @@ export class ProjectService {
     return project;
   }
 
-  async addCollaborator(projectId: Types.ObjectId, collaboratorId: Types.ObjectId) {
+  async addCollaborator(
+    projectId: Types.ObjectId,
+    collaboratorId: Types.ObjectId,
+  ) {
     const project = await this.findOne(projectId);
     project.collaborators.push(collaboratorId);
     if (project.collaborators.some((member) => member.equals(collaboratorId))) {
@@ -193,19 +231,29 @@ export class ProjectService {
       );
     }
     project.collaborators.push(collaboratorId);
-    await this.conversationService.addMember(project.conversation, collaboratorId);
+    await this.conversationService.addMember(
+      project.conversation,
+      collaboratorId,
+    );
     await project.save();
     return project;
   }
 
-  async removeCollaborator(projectId: Types.ObjectId, collaboratorId: Types.ObjectId) {
+  async removeCollaborator(
+    projectId: Types.ObjectId,
+    collaboratorId: Types.ObjectId,
+  ) {
     const project = await this.findOne(projectId);
-    project.collaborators = project.collaborators.filter((id) => !id.equals(collaboratorId));
-    await this.conversationService.removeMember(project.conversation, collaboratorId);
+    project.collaborators = project.collaborators.filter(
+      (id) => !id.equals(collaboratorId),
+    );
+    await this.conversationService.removeMember(
+      project.conversation,
+      collaboratorId,
+    );
     await project.save();
   }
 }
-
 
 @Injectable()
 export class CRDTService {
@@ -217,34 +265,25 @@ export class CRDTService {
     private readonly projectService: ProjectService,
     private readonly fileService: FileService,
     private readonly userService: UsersService,
-    @Inject('REDIS_CONFIG') private readonly redisConfig: any, 
+    @Inject('REDIS_CONFIG') private readonly redisConfig: any,
     @InjectModel(Project.name) private projectModel: Model<Project>,
-
   ) {}
 
-  async getDocument(projectId: string, existingDoc: Y.Doc): Promise<Y.Doc> {
-    return new Promise(async (resolve) => {
-        const doc = await this.createDocument(projectId, existingDoc);
-        resolve(doc);
-    });
+  async getDocument(projectId: string, existingDoc: Y.Doc | null = null): Promise<any> {
+    const doc = await this.createDocument(projectId, existingDoc);
+    return doc;
   }
-  
-  async createDocument(projectId: string, existingDoc: Y.Doc): Promise<Y.Doc> {
-    return new Promise(async (resolve) => {
-      existingDoc.getMap('metadata').set('projectId', projectId);
-      // Load data from MongoDB
-      await this.projectService.loadFromMongoDB(new Types.ObjectId(projectId), existingDoc);
-  
-      // Setup update listener
-      // doc.on('update', (update: Uint8Array, origin: any) => {
-      //   if (origin !== 'local') {
-      //     console.log("Waaaa")
-      //     this.throttledSaveToMongoDB(projectId, doc);
-      //   }
-      // });
-  
-      resolve(existingDoc);
-    });
+
+  async createDocument(projectId: string, existingDoc: Y.Doc | null): Promise<any> {
+    // return new Promise(async (resolve) => {
+    existingDoc = existingDoc || new Y.Doc();
+    existingDoc.getMap('metadata').set('projectId', projectId);
+    // Load data from MongoDB
+    const result = await this.projectService.loadFromMongoDB(
+      new Types.ObjectId(projectId),
+      existingDoc,
+    );
+    return result;
   }
   // 3. Apply fabric.js objects
   async applyFabricObjects(
@@ -372,42 +411,49 @@ export class CRDTService {
   }
 
   // 13. Fork project from snapshot
-  async forkProject(projectId: string, forker: string): Promise<ProjectDocument> {
+  async forkProject(
+    projectId: string,
+    forker: string,
+  ): Promise<ProjectDocument> {
     const projId = new Types.ObjectId(projectId);
     const originalProject = await this.projectService.findOne(projId);
-    const userWhoForked = await this.userService.findOne(new Types.ObjectId(forker));
+    const userWhoForked = await this.userService.findOne(
+      new Types.ObjectId(forker),
+    );
     if (!originalProject) throw new NotFoundError('Original project not found');
-    const buffer = await this.fileService.findOne(new Types.ObjectId(originalProject.gridFsId));
+    const buffer = await this.fileService.findOne(
+      new Types.ObjectId(originalProject.gridFsId),
+    );
     const update = new Uint8Array(buffer);
     const newDoc = new Y.Doc();
     Y.applyUpdate(newDoc, update);
     const stream = new Readable();
     stream.push(update);
     stream.push(null); // Signal end of stream
-    const gridFsId = await this.fileService.saveFile(stream, `forked-project-${projectId}-${Date.now()}`);
-    const forkedProject = await this.projectService.create(
-      {
-        title:  `Fork of ${originalProject.title}`,
-        description: originalProject.description,
-        creator: userWhoForked._id,
-        isForked: true,
-        forkedFrom: projId,
-        tags: originalProject.tags
-      }
+    const gridFsId = await this.fileService.saveFile(
+      stream,
+      `forked-project-${projectId}-${Date.now()}`,
     );
-  
+    const forkedProject = await this.projectService.create({
+      title: `Fork of ${originalProject.title}`,
+      description: originalProject.description,
+      creator: userWhoForked._id,
+      isForked: true,
+      forkedFrom: projId,
+      tags: originalProject.tags,
+    });
+
     // Update the forked project with the new GridFS file ID
     forkedProject.gridFsId = gridFsId;
     await forkedProject.save();
     return forkedProject;
   }
   async createSnapshot(projectId: string, user?: string): Promise<string> {
-    let regex = `snapshot-${projectId}`
-    if (user)
-      regex += `-${user}`
+    let regex = `snapshot-${projectId}`;
+    if (user) regex += `-${user}`;
     const doc = this.documents.get(projectId);
     if (!doc) throw new NotFoundError('Document not found');
-  
+
     // Serialize the Yjs document state
     const update = Y.encodeStateAsUpdate(doc);
     const stream = new Readable();
@@ -424,10 +470,12 @@ export class CRDTService {
 
     // Get all objects
     const objectsMap = doc.getMap('objects');
-    const objects = Array.from(objectsMap.entries()).map(([id, obj]: [any, any]) => ({
-      id,
-      ...obj,
-    }));
+    const objects = Array.from(objectsMap.entries()).map(
+      ([id, obj]: [any, any]) => ({
+        id,
+        ...obj,
+      }),
+    );
 
     return {
       canvas: canvasSettings,
@@ -441,7 +489,7 @@ export class CRDTService {
     let timeout: NodeJS.Timeout | null = null;
 
     const MAX_BATCH_SIZE = 50; // Maximum number of pending saves to process at once
-  
+
     const processPending = async () => {
       const toProcess = Array.from(pending).slice(0, MAX_BATCH_SIZE);
       pending.clear();
@@ -491,21 +539,21 @@ export class CRDTService {
   async saveToMongoDB(projectId: string, doc: Y.Doc): Promise<void> {
     const project = await this.projectService.findOne(new Types.ObjectId(projectId));
     if (!project) throw new Error('Project not found');
-
-    // Serialize the Yjs document state
+  
     const update = Y.encodeStateAsUpdate(doc);
+    const updateBuffer = Buffer.from(update); // Convert to Buffer
+    this.logger.log(`Saving update with length: ${updateBuffer.length}`);
+    
     const stream = new Readable();
-    stream.push(update);
-    stream.push(null); // Signal end of stream
-
-    // Save the Yjs document state to GridFS
+    stream.push(updateBuffer);
+    stream.push(null);
+  
     const gridFsId = await this.fileService.saveFile(stream, `project-${projectId}-state`);
-
-    // Update the project with the new file ID
     project.gridFsId = gridFsId;
     await project.save();
     this.logger.log(`Saved project state to MongoDB for project ${projectId}`);
   }
+  
   // Clean up resources
   async cleanUp(projectId: string): Promise<void> {
     // Save state before cleanup

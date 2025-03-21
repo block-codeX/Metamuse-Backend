@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Scope } from '@nestjs/common';
 import { ProjectService, CRDTService, FileService } from './project.service';
 import { ConversationModule } from 'src/conversation/conversation.module';
 import { UsersModule } from 'src/users/users.module';
@@ -24,18 +24,20 @@ const redisConfig = {
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
   ],
   providers: [
-    {
-      provide: 'REDIS_CONFIG', // Use a token to identify the provider
-      useValue: redisConfig, // Provide the Redis configuration
-    },
+
     ProjectService,
     AuthService,
     ConversationService,
     UsersService,
     CRDTService,
     FileService,
+    {
+      provide: 'REDIS_CONFIG', // Use a token to identify the provider
+      useValue: redisConfig, // Provide the Redis configuration
+      scope: Scope.DEFAULT, // Default scope
+    },
   ],
-  exports: [ProjectService, CRDTService, FileService],
+  exports: [ProjectService, CRDTService, FileService, 'REDIS_CONFIG'],
   controllers: [ProjectController],
 })
 export class ProjectModule {}

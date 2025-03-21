@@ -54,8 +54,8 @@ export const returnUser = async (
     const user = await userService.findOne(
       Types.ObjectId.createFromHexString(decoded.sub ?? ''),
     );
-    if (user.status !== 'active')
-      throw new UnauthorizedError(`User is ${user.status}`);
+    // if (user.status !== 'active')
+    //   throw new UnauthorizedError(`User is ${user.status}`);
     return [user, token];
   } catch (error) {
     console.error(error);

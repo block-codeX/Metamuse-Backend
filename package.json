@@ -65,6 +65,7 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
     "winston": "^3.17.0",
+    "y-mongodb-provider": "^0.2.0",
     "y-redis": "^1.0.3",
     "y-websocket": "^2.1.0",
     "yjs": "^13.6.24",
