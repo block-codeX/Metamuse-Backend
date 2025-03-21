@@ -46,6 +46,7 @@
     "cookie-parser": "^1.4.7",
     "crypto": "^1.0.1",
     "dotenv": "^16.4.7",
+    "fabric": "^6.6.1",
     "fastify": "^5.2.1",
     "fastify-cookie": "^5.6.1",
     "gridfs-stream": "^1.1.1",

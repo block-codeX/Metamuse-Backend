@@ -8,17 +8,21 @@ import {
   BadRequestException,
   Get,
   Query,
+  Param,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   CreateProjectDto,
   NewProjectDto,
   newProjectSchema,
 } from './project.dto';
-import { ProjectService } from './project.service';
-import { PaginatedQuery, ZodValidationPipe } from '@app/utils';
+import { CRDTService, FileService, ProjectService } from './project.service';
+import { NotFoundError, PaginatedQuery, ZodValidationPipe } from '@app/utils';
 import { FilterQuery, Types } from 'mongoose';
 import { AllowAny } from 'src/auth/auth.decorator';
 import { Project } from './project.schema';
+import * as fabric from 'fabric';
+import * as Y from 'yjs';
 interface GetProjectsQuery extends PaginatedQuery {
   creator?: string;
   isCompleted: string;
@@ -26,12 +30,13 @@ interface GetProjectsQuery extends PaginatedQuery {
   tags: string;
   collaborator?: string;
   title?: string;
+  full?: string;
 }
 
 @Controller('projects')
 export class ProjectController {
   // Create project
-  constructor(private readonly projectService: ProjectService) {}
+  constructor(private readonly projectService: ProjectService, private readonly crdtService: CRDTService, private readonly fileService: FileService) {}
   @Post('new')
   @UsePipes(new ZodValidationPipe(newProjectSchema))
   async create(@Request() req, @Body() newProjectData: NewProjectDto) {
@@ -58,6 +63,7 @@ export class ProjectController {
         isForked,
         title,
         tags,
+        full, 
         page = 1,
         limit = 10,
       } = query;
@@ -75,11 +81,13 @@ export class ProjectController {
         const tagsArray = Array.isArray(tags)
           ? tags
           : tags.split(',').map((tag) => tag.trim());
+        console.log(tagsArray, "wa");
         if (tagsArray.length > 0) filters.tags = { $all: tagsArray };
       }
       const pageNum = Number(page) || 1;
       const limitNum = Number(limit) || 10;
       const projects = await this.projectService.findAll({
+        full: full === 'true',
         filters,
         page: pageNum,
         limit: limitNum,
@@ -94,6 +102,34 @@ export class ProjectController {
   }
 
   // get project (by id)
+
+  @Get(':projectId')
+  async findOne(@Request() req, @Param('projectId') projectId: string) {
+    try {
+      const project = await this.projectService.findOne(
+        new Types.ObjectId(projectId), {}, true
+      );
+
+      return project;
+    } catch (error) {
+      if (error instanceof NotFoundError)
+        throw new NotFoundException(error.message);
+      throw new BadRequestException(error.message);
+    }
+  }
+  // get file
+
+  @Get(":projectId/file")
+  async findFile(@Request() req, @Param('projectId') projectId: string) {
+    try {
+      const tempDoc = new Y.Doc();
+      await this.crdtService.getDocument(projectId, tempDoc);
+      const fileValue = this.fileService.returnFile(tempDoc);
+      return fileValue;
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
   // delete project
   // get project collaborators
   // add project collaborator
@@ -101,6 +137,5 @@ export class ProjectController {
   // invite project collaborator
   // join existing project
   // delete project
-  // get file
   // all project snapshots ( by filters )
 }

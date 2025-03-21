@@ -16,7 +16,7 @@ import { MongoClient, GridFSBucket, GridFSFile, Filter } from 'mongodb';
 import { Readable } from 'stream';
 import { CreateProjectDto } from './project.dto';
 import { UsersService } from 'src/users/users.service';
-
+import * as fabric from 'fabric';
 /**
  * File service, makes use of gridfs for now, would switch to aws or another thing while upscaling...
  */
@@ -52,6 +52,12 @@ export class FileService {
       downloadStream.on('end', () => resolve(Buffer.concat(chunks)));
       downloadStream.on('error', reject);
     });
+  }
+
+  async returnFile(doc: Y.Doc) {
+    const objects = doc.getMap('objects');
+    const canvas = doc.getMap('canvas');
+    return { objects, canvas };
   }
 
   async deleteFile(fileId: Types.ObjectId): Promise<void> {
@@ -113,27 +119,38 @@ export class ProjectService {
     page = 1,
     limit = 10,
     order = -1,
-    sortField = 'email',
+    sortField = '-createdAt',
+    full=false
   }: {
     filters: FilterQuery<Project>;
+    full: boolean;
     page: number;
     limit: number;
     order: SortOrder;
     sortField: string;
   }): Promise<PaginatedDocs<Project>> {
     const fieldsToExclude = ['-__v'];
+    const populateFields =  [{ path: 'creator', select: ['-__v', '-password', '-lastAuthChange'] }];
+    if (full) populateFields.push({ path: 'collaborators', select: ['-__v', '-password', '-lastAuthChange']})
     return await paginate(
       this.projectModel,
       filters,
       { page, limit, sortField, sortOrder: order },
       fieldsToExclude,
+      populateFields as any
     );
   }
 
-  async findOne(id?: Types.ObjectId, fields: any = {}): Promise<ProjectDocument> {
+  async findOne(id?: Types.ObjectId, fields: any = {}, full = false): Promise<ProjectDocument> {
     if (id) fields._id = id;
     const project = await this.projectModel.findOne(fields);
     if (!project) throw new NotFoundError('Project not found');
+    if (full) {
+      await project.populate({
+        path: 'creator collaborators',
+        select: '-password -lastAuthChange'
+      });
+    }
     return project;
   }
 

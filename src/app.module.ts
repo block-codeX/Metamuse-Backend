@@ -28,6 +28,6 @@ import { YjsWebSocketGateway } from './project/yjs.gateway';
     ProjectModule,
   ],
   controllers: [AppController],
-  providers: [AppService, YjsWebSocketGateway],
+  providers: [AppService, ChatGateway, YjsWebSocketGateway],
 })
 export class AppModule {}
