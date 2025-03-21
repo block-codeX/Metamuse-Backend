@@ -173,20 +173,25 @@ export class MessageService {
     page = 1,
     limit = 10,
     order = -1,
-    sortField = 'createdAt',
+    sortField = '-createdAt',
+    full=false
   }: {
     filters: FilterQuery<Message>;
     page: number;
+    full: boolean;
     limit: number;
     order: SortOrder;
     sortField: string;
   }): Promise<PaginatedDocs<Message>> {
     const fieldsToExclude = ['-__v', '-isRead'];
+    const populateFields: any =  [];
+    if (full) populateFields.push({ path: 'sender', select: ['-__v', '-password', '-lastAuthChange']})
     return await paginate(
       this.messageModel,
       filters,
       { page, limit, sortField, sortOrder: order },
       fieldsToExclude,
+      populateFields as any
     );
   }
   async findOne(id: Types.ObjectId) {
@@ -198,7 +203,7 @@ export class MessageService {
   async update(id: Types.ObjectId, content: string) {
     const message = await this.findOne(id);
     if (!message) throw new NotFoundError('Message not found');
-    message.content = content;
+    message.content = content;  
     message.isEdited = true;
     await message.save();
     return message;

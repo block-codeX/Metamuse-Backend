@@ -55,8 +55,8 @@ export class FileService {
   }
 
   async returnFile(doc: Y.Doc) {
-    const objects = doc.getMap('objects');
-    const canvas = doc.getMap('canvas');
+    const objects = doc.getMap('objects').toJSON();
+    const canvas = doc.getMap('canvas').toJSON();
     return { objects, canvas };
   }
 

@@ -86,7 +86,7 @@ async function bootstrap() {
   // Configure CORS, exception filter, and security
   // app.enableCors();
   app.useGlobalFilters(new AllExceptionsFilter());
-  
+  app.useWebSocketAdapter(new WsAdapter(app))
   // Register Fastify plugins with proper error handling
   try {
     await app.register(helmet);

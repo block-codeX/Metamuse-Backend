@@ -60,7 +60,7 @@ export class YjsWebSocketGateway
         this.authService,
         this.usersService,
       );
-      const doc = utils.setupWSConnection(client, request, {
+      utils.setupWSConnection(client, request, {
         docName: projectId,
         gc: true,
         loader: this.getOrCreateDoc.bind(this),
@@ -69,8 +69,10 @@ export class YjsWebSocketGateway
       // const initialState = Y.encodeStateAsUpdate(doc);
 
     } catch (error) {
-      console.error(error);
-      client.close();
+      this.logger.error(`Connection error: ${error.message}`);
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1011, error.message);
+      }
     }
   }
   @SubscribeMessage("project:init")

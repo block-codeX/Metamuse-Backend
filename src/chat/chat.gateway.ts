@@ -37,7 +37,7 @@ interface CustomWebSocket extends WebSocket {
     };
   };
 }
-@WebSocketGateway({
+@WebSocketGateway(8001, {
   cors: { origin: '*' },
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -67,7 +67,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.usersService,
       );
       const chatRoom = await functionRoomAuth(client, this.conversationService);
-      if (!this.rooms.has(chatRoom)) {
+      const userRoom = `user_${client.user._id}`;
+        if (!this.rooms.has(chatRoom)) {
         this.rooms.set(chatRoom, new Set());
       }
       this.rooms.get(chatRoom)?.add(client);
@@ -75,8 +76,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         `Client connected: ${client.user._id} to chat room: ${client.roomId}`,
       );
     } catch (error) {
-      // console.error('Connection error:', error.message);
-      client.close(4003, error.message);
+      this.logger.error(`Connection error: ${error.message}`);
+      if (client.readyState === WebSocket.OPEN) {
+        client.close(1011, error.message);
+      }
     }
   }
 
@@ -102,9 +105,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         sender,
         content,
       } as CreateMessagingDto);
+      await message.populate('sender', 'id firstName lastName email');
       console.log('Message created', message);
       const chatRoom = this.getRoom(message);
-      this.broadcastToRoom(chatRoom, 'msg:new_message', message);
+      this.broadcastToRoom(chatRoom, 'msg:create', message);
     } catch (error) {
       console.error(error);
       this.sendError(client, 'msg:error', error.message);
@@ -125,10 +129,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         new Types.ObjectId(id),
         content,
       );
+      await msg.populate('sender', 'id firstName lastName email');
       // emit to chat room
       this.broadcastToRoom(
         this.getRoom(message),
-        'msg:update_message',
+        'msg:update',
         message,
       );
     } catch (error) {
@@ -149,7 +154,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new Error('You are not the sender of this message');
       }
       await this.messageService.remove(new Types.ObjectId(data.id));
-      this.broadcastToRoom(this.getRoom(msg), 'delete_message', { info: 'Message deleted', id: data.id });
+      this.broadcastToRoom(this.getRoom(msg), 'msg:delete', data.id);
       } catch (error) {
       console.error(error);
       client.emit('msg:error', error.message);
@@ -159,6 +164,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return `chat_${message.conversation.toString()}`;
   }
   private broadcastToRoom(roomId: string, event: string, data: any): void {
+    this.logger.log(`Broadcasting to room: ${roomId}`);
     const clients = this.rooms.get(roomId);
     if (clients) {
       clients.forEach((client) => {

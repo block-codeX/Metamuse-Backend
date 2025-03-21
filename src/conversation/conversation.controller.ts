@@ -30,6 +30,7 @@ import { AuthService } from 'src/auth/auth.service';
 import { AllowAny } from 'src/auth/auth.decorator';
 
 interface GetMessagesQuery extends PaginatedQuery {
+  full: string;
   text?: string;
 }
 interface GetConversationsQuery extends PaginatedQuery {
@@ -125,7 +126,7 @@ export class ConversationController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {
-      const conversationId = Types.ObjectId.createFromHexString(id);
+      const conversationId = new Types.ObjectId(id);
       const conversation =
         await this.conversationService.findOne(conversationId);
       await conversation.populate('members', '_id email firstName lastName');
@@ -267,6 +268,7 @@ export class ConversationController {
       if (query.text) filters.content = { $regex: query.text, $options: 'i' };
       const { page = 1, limit = 1000 } = query;
       const messages = await this.messageService.findAll({
+        full: query?.full == 'true',
         filters,
         page,
         limit,

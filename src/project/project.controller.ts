@@ -21,7 +21,6 @@ import { NotFoundError, PaginatedQuery, ZodValidationPipe } from '@app/utils';
 import { FilterQuery, Types } from 'mongoose';
 import { AllowAny } from 'src/auth/auth.decorator';
 import { Project } from './project.schema';
-import * as fabric from 'fabric';
 import * as Y from 'yjs';
 interface GetProjectsQuery extends PaginatedQuery {
   creator?: string;
@@ -119,12 +118,13 @@ export class ProjectController {
   }
   // get file
 
-  @Get(":projectId/file")
+  @AllowAny()
+  @Get(":projectId/reconstruct")
   async findFile(@Request() req, @Param('projectId') projectId: string) {
     try {
       const tempDoc = new Y.Doc();
       await this.crdtService.getDocument(projectId, tempDoc);
-      const fileValue = this.fileService.returnFile(tempDoc);
+      const fileValue = await this.fileService.returnFile(tempDoc);
       return fileValue;
     } catch (error) {
       throw new BadRequestException(error.message);
