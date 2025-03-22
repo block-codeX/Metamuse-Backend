@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Controller, Post, Body, Get, Param, UseGuards } from '@nestjs/common';
@@ -5,7 +6,7 @@ import { SuiService } from './sui.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('sui')
-@UseGuards(AuthGuard)
+// @UseGuards(AuthGuard)
 export class SuiController {
   constructor(private readonly suiService: SuiService) {}
 

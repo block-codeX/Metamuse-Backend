@@ -14,6 +14,8 @@ export class User {
     email: string;
     @Prop({ required: true, minlength: 6})
     password: string;
+    @Prop({})
+    private_key: srtring;
     @Prop({ required: true, default: Date.now })
     createdAt: Date;
     @Prop({ required: true, default: Date.now })

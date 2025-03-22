@@ -12,13 +12,14 @@ import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProjectModule } from './project/project.module';
 import { YjsWebSocketGateway } from './project/yjs.gateway';
-import { WalletController } from './wallet/wallet.controller';
-import { WalletService } from './wallet/wallet.service';
-import { SuiController } from './sui/sui.controller';
+import { SuiModule } from './sui/sui.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
     AuthModule,
+    SuiModule,
+    WalletModule,
     UsersModule,
     MongooseModule.forRoot(DB_CONNECTION_STRING),
     ThrottlerModule.forRoot([
@@ -32,13 +33,7 @@ import { SuiController } from './sui/sui.controller';
     NotificationModule,
     ProjectModule,
   ],
-  controllers: [AppController, WalletController, SuiController],
-  providers: [
-    AppService,
-    ChatGateway,
-    YjsWebSocketGateway,
-    WalletService,
-    SuiController,
-  ],
+  controllers: [AppController],
+  providers: [AppService, ChatGateway, YjsWebSocketGateway],
 })
 export class AppModule {}
