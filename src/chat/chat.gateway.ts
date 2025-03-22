@@ -105,6 +105,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         sender,
         content,
       } as CreateMessagingDto);
+      // @ts-ignore
       await message.populate('sender', 'id firstName lastName email');
       console.log('Message created', message);
       const chatRoom = this.getRoom(message);
