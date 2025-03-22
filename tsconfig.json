@@ -35,7 +35,12 @@
       ],
       "@app/utils/*": [
         "libs/utils/src/*"
-      ]
+      ],
+      "y-websocket/bin/utils.cjs": ["./types/y-websocket.d.ts"]
     }
-  }
+  },
+  "include": [
+    "src/**/*",
+    "types/**/*"  // Include custom type declarations
+  ]
 }
