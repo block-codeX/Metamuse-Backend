@@ -9,6 +9,8 @@ import {
   BlacklistRefreshSchema,
   OTP,
   OTPSchema,
+  Token,
+  TokenSchema,
 } from './auth.schema';
 import { UsersModule } from 'src/users/users.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -27,6 +29,7 @@ import { NotificationModule } from 'src/notification/notification.module';
       { name: BlacklistAccess.name, schema: BlacklistAccessSchema },
       { name: BlacklistRefresh.name, schema: BlacklistRefreshSchema },
       { name: OTP.name, schema: OTPSchema },
+      { name: Token.name, schema: TokenSchema},
     ]),
     UsersModule,
     NotificationModule,

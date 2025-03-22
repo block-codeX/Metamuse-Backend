@@ -7,9 +7,11 @@ import { UsersService } from 'src/users/users.service';
 import { Project, ProjectSchema } from './project.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from 'src/auth/auth.module';
-import { AuthService } from 'src/auth/auth.service';
+import { AuthService, OTPService } from 'src/auth/auth.service';
 import { YJS_REDIS_DB, YJS_REDIS_HOST, YJS_REDIS_PORT } from '@app/utils';
 import { ProjectController } from './project.controller';
+import { EmailService } from 'src/notification/notification.service';
+import { NotificationModule } from 'src/notification/notification.module';
 
 const redisConfig = {
   host: YJS_REDIS_HOST,
@@ -21,6 +23,7 @@ const redisConfig = {
     AuthModule,
     ConversationModule,
     UsersModule,
+    NotificationModule,
     MongooseModule.forFeature([{ name: Project.name, schema: ProjectSchema }]),
   ],
   providers: [
@@ -31,6 +34,8 @@ const redisConfig = {
     UsersService,
     CRDTService,
     FileService,
+    OTPService,
+    
     {
       provide: 'REDIS_CONFIG', // Use a token to identify the provider
       useValue: redisConfig, // Provide the Redis configuration

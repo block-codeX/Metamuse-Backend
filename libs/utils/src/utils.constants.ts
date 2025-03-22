@@ -55,3 +55,6 @@ export const REDIS_URL = process.env.REDIS_URL as string;
 export const YJS_REDIS_HOST = process.env.YJS_REDIS_HOST as string;
 export const YJS_REDIS_PORT = parseInt(process.env.YJS_REDIS_PORT as string);
 export const YJS_REDIS_DB = parseInt(process.env.YJS_REDIS_DB as string);
+
+// CRYPTO
+export const CRYPTO_SECRET = process.env.CRYPTO_SECRET as string;

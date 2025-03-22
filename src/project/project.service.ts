@@ -23,6 +23,7 @@ import { Readable } from 'stream';
 import { CreateProjectDto } from './project.dto';
 import { UsersService } from 'src/users/users.service';
 import * as fabric from 'fabric';
+import { OTPService } from 'src/auth/auth.service';
 /**
  * File service, makes use of gridfs for now, would switch to aws or another thing while upscaling...
  */
@@ -89,19 +90,24 @@ export class ProjectService {
       const stream = new Readable();
       stream.push(updateBuffer);
       stream.push(null);
-      const gridFsId = await this.fileService.saveFile(stream, `project-${projectId}-state`);
+      const gridFsId = await this.fileService.saveFile(
+        stream,
+        `project-${projectId}-state`,
+      );
       project.gridFsId = gridFsId.toString();
       await project.save();
     }
-    this.logger.log("GridFS file ID:", project.gridFsId);
-    const buffer = await this.fileService.findOne(new Types.ObjectId(project.gridFsId));
+    this.logger.log('GridFS file ID:', project.gridFsId);
+    const buffer = await this.fileService.findOne(
+      new Types.ObjectId(project.gridFsId),
+    );
     this.logger.log(`Loaded update with length: ${buffer.length}`);
     // Ensure it's a Uint8Array
-   const value =  new Uint8Array(buffer);
+    const value = new Uint8Array(buffer);
     Y.applyUpdate(doc, value);
     return value;
   }
-  
+
   async create(data: CreateProjectDto) {
     const {
       title,
@@ -219,7 +225,6 @@ export class ProjectService {
     collaboratorId: Types.ObjectId,
   ) {
     const project = await this.findOne(projectId);
-    project.collaborators.push(collaboratorId);
     if (project.collaborators.some((member) => member.equals(collaboratorId))) {
       throw new ValidationError(
         'User is already a member of this conversation',
@@ -230,6 +235,7 @@ export class ProjectService {
         'Conversation has reached the maximum number of members',
       );
     }
+
     project.collaborators.push(collaboratorId);
     await this.conversationService.addMember(
       project.conversation,
@@ -269,12 +275,18 @@ export class CRDTService {
     @InjectModel(Project.name) private projectModel: Model<Project>,
   ) {}
 
-  async getDocument(projectId: string, existingDoc: Y.Doc | null = null): Promise<any> {
+  async getDocument(
+    projectId: string,
+    existingDoc: Y.Doc | null = null,
+  ): Promise<any> {
     const doc = await this.createDocument(projectId, existingDoc);
     return doc;
   }
 
-  async createDocument(projectId: string, existingDoc: Y.Doc | null): Promise<any> {
+  async createDocument(
+    projectId: string,
+    existingDoc: Y.Doc | null,
+  ): Promise<any> {
     // return new Promise(async (resolve) => {
     existingDoc = existingDoc || new Y.Doc();
     existingDoc.getMap('metadata').set('projectId', projectId);
@@ -537,23 +549,28 @@ export class CRDTService {
   }
 
   async saveToMongoDB(projectId: string, doc: Y.Doc): Promise<void> {
-    const project = await this.projectService.findOne(new Types.ObjectId(projectId));
+    const project = await this.projectService.findOne(
+      new Types.ObjectId(projectId),
+    );
     if (!project) throw new Error('Project not found');
-  
+
     const update = Y.encodeStateAsUpdate(doc);
     const updateBuffer = Buffer.from(update); // Convert to Buffer
     this.logger.log(`Saving update with length: ${updateBuffer.length}`);
-    
+
     const stream = new Readable();
     stream.push(updateBuffer);
     stream.push(null);
-  
-    const gridFsId = await this.fileService.saveFile(stream, `project-${projectId}-state`);
+
+    const gridFsId = await this.fileService.saveFile(
+      stream,
+      `project-${projectId}-state`,
+    );
     project.gridFsId = gridFsId;
     await project.save();
     this.logger.log(`Saved project state to MongoDB for project ${projectId}`);
   }
-  
+
   // Clean up resources
   async cleanUp(projectId: string): Promise<void> {
     // Save state before cleanup

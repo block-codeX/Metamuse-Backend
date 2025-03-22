@@ -6,8 +6,7 @@ import { User } from './users.schema';
 import { AllowAny } from 'src/auth/auth.decorator';
 
 interface GetUsersQuery {
-    firstName?: string;
-    lastName?: string;
+    name?: string;
     email?: string;
     page?: number;
     limit?: number;
@@ -54,11 +53,15 @@ export class UsersController {
     @Get('all')
     async getUsers(@Query() query: GetUsersQuery) {
         try {
-            const { firstName, lastName, email, page = 1, limit = 10 } = query;
+            const { name, email, page = 1, limit = 1000 } = query;
             const filters: FilterQuery<User>  = {}
-            if (firstName) filters.firstName = firstName;
-            if (lastName) filters.lastName = lastName;
-            if (email) filters.email = email;
+            if (name) {
+                filters.$or = [
+                    { firstName: { $regex: name, $options: 'i' } },
+                    { lastName: { $regex: name, $options: 'i' } },
+                ];
+            }
+            if (email) filters.email = { $regex: email, $options: 'i' };
             const users = await this.usersService.findAll({
                 filters,
                 page,

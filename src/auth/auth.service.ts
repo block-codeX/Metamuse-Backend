@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { BlacklistAccess, BlacklistRefresh, OTP } from './auth.schema';
+import { BlacklistAccess, BlacklistRefresh, OTP, Token } from './auth.schema';
 import {
   ForbiddenError,
   FRONTEND_URL,
@@ -182,6 +182,7 @@ export class AuthService {
 export class OTPService {
   constructor(
     @InjectModel(OTP.name) private otpModel: Model<OTP>,
+    @InjectModel(Token.name) private tokenModel: Model<Token>,
     private emailService: EmailService,
   ) {}
   private generateOTP(): string {
@@ -277,5 +278,16 @@ export class OTPService {
         currentYear: new Date().getFullYear(),
       },
     });
+  }
+
+  async newToken(projectId, userId) {
+    const token = await this.tokenModel.create({ projectId, userId });
+    return token;
+  }
+
+  async getToken(id: Types.ObjectId): Promise<Token> {
+    const token = await this.tokenModel.findOne({ _id: id });
+    if (!token) throw new NotFoundError("Token not found");
+    return token;
   }
 }
