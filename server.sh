@@ -11,15 +11,13 @@ ssh metamuse << EOF
     tar -xzvf ~/Metamuse-Backend/"$filename" -C ~/Metamuse-Backend --strip-components=1
     cd ~/Metamuse-Backend
     echo "linking service file to systemd"
-
     SERVICE_NAME="metamuse.service"
     SERVICE_PATH="/etc/systemd/system/$SERVICE_NAME"
-    SOURCE_PATH="$HOME/Metamuse-Backend/metamuse.service"
+    SOURCE_PATH="~/Metamuse-Backend/metamuse.service"
     if [ -f "$SERVICE_PATH" ]; then
         echo "Removing existing service file..."
         sudo rm -f "$SERVICE_PATH"
     fi
-
     # Move the new service file
     if [ -f "$SOURCE_PATH" ]; then
         echo "Moving new service file to systemd directory..."
