@@ -58,3 +58,6 @@ export const YJS_REDIS_DB = parseInt(process.env.YJS_REDIS_DB as string);
 
 // CRYPTO
 export const CRYPTO_SECRET = process.env.CRYPTO_SECRET as string;
+
+// blockchain
+// export const SUI_CONTRACT_ADDRESS = process.env.SUI_CONTRACT_ADDRESS as string;
