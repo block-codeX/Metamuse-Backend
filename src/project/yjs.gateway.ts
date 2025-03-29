@@ -23,6 +23,7 @@ import { Server, WebSocket } from 'ws';
 // @ts-ignore
 import * as utils from 'y-websocket/bin/utils';
 import { RedisPersistence } from 'y-redis';
+import Redis from 'ioredis';
 
 interface ClientInfo {
   client: WebSocket;
@@ -36,8 +37,11 @@ interface ClientInfo {
 @Injectable()
 export class YjsWebSocketGateway implements OnGatewayConnection {
   private readonly logger = new ConsoleLogger(YjsWebSocketGateway.name);
+  private redisClient: Redis;
+  private persistence: any
   @WebSocketServer()
   server: Server;
+
   constructor(
     private readonly crdtService: CRDTService,
     private readonly usersService: UsersService,
@@ -45,7 +49,8 @@ export class YjsWebSocketGateway implements OnGatewayConnection {
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
     @Inject('REDIS_CONFIG') private readonly redisConfig: any,
-  ) {}
+  ) {
+  }
 
   async handleConnection(client: WebSocket, request: Request) {
     try {
@@ -61,12 +66,13 @@ export class YjsWebSocketGateway implements OnGatewayConnection {
         this.authService,
         this.usersService,
       );
-      const persistence = new RedisPersistence(this.redisConfig);
-      utils.setPersistence(persistence);
+      this.persistence = new RedisPersistence(this.redisConfig);
+      this.persistence.writeState = async () => {}
+      utils.setPersistence(this.persistence);
       utils.setupWSConnection(client, request, {
         docName: projectId,
         gc: true,
-        persistence,
+        // persistence,
       });
     } catch (error) {
       console.error(error);
@@ -79,8 +85,8 @@ export class YjsWebSocketGateway implements OnGatewayConnection {
   
 
   // Handle client disconnection
-  // handleDisconnect(client: Socket) {
-  //   this.logger.log(`Client disconnected: ${client.id}`);
-  // }
+  handleDisconnect(client: Socket) {
+    this.logger.log(`Client disconnected: ${client.id}`);
+  }
 
 }

@@ -11,11 +11,13 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import { AllExceptionsFilter, COOKIE_SECRET, PORT } from '@app/utils';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { ConsoleLogger, RequestMethod, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, ImATeapotException, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { CORS_ALLOWED } from '../libs/utils/src/utils.constants';
-
+import { config } from 'dotenv';
+config()
+console.log(process.env.CORS_ALLOWED)
 async function bootstrap() {
   // Configure comprehensive Winston logging
   const logger = WinstonModule.createLogger({
@@ -62,7 +64,7 @@ async function bootstrap() {
       }
     },
   });
-
+  fastifyAdapter
   // Create application with better logging
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
@@ -83,8 +85,29 @@ async function bootstrap() {
     })
   );
 
+
   // Configure CORS, exception filter, and security
-  // app.enableCors();
+  await app.register(fastifyCors, {
+    origin: (origin, cb) => {
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      if (
+        CORS_ALLOWED.includes(origin) ||
+        !!origin.match(/metamuse\.online$/)
+      ) {
+        console.log('allowed cors for:', origin);
+        cb(null, true);
+      } else {
+        console.log('blocked cors for:', origin);
+        cb(new ImATeapotException('Not allowed by CORS'), false);
+      }
+    },
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'], // Added 'x-csrf-token'
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  });
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useWebSocketAdapter(new WsAdapter(app))
   // Register Fastify plugins with proper error handling
@@ -94,10 +117,7 @@ async function bootstrap() {
     await app.register(fastifyCookie, {
       secret: COOKIE_SECRET
     });
-    await app.register(fastifyCors, {
-      origin: ['http://localhost:3000'], // Enable CORS for localhost:3000
-      credentials: true, // Allow credentials (cookies, authorization headers, etc.)
-    });
+
   } catch (err) {
     logger.error(`Failed to register Fastify plugins: ${err.message}`);
   }

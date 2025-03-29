@@ -157,7 +157,7 @@ export class ProjectController {
         new Types.ObjectId(projectId))
       const token = await this.otpService.newToken(project._id, user._id);
       const encoded = encryptObjectId(token._id.toString());
-          await this.emailService.sendMail({
+      this.emailService.sendMail({
             to: user.email,
             subject: 'Invitation to my project',
             template: 'project-invite',
