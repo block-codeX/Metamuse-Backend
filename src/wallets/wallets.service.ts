@@ -1,6 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { CreateWalletDto } from './dto/create-wallet.dto';
-import { UpdateWalletDto } from './dto/update-wallet.dto';
 import { INewWallet } from './wallets.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Wallet } from './wallets.schema';
@@ -16,8 +14,8 @@ export class WalletsService {
   async create(createWalletDto: INewWallet) {
     const newWallet = await this.walletModel.create(createWalletDto);
     if (!newWallet) {
-      throw new BaseError('Error creating wallet');
       console.error('Error creating wallet', newWallet);
+      throw new BaseError('Error creating wallet');
     }
     return newWallet;
   }
@@ -49,8 +47,11 @@ export class WalletsService {
     return wallet;
   }
 
-  async toggleWalletAsActive(id: Types.ObjectId) {
+  async toggleWalletAsActive(id: Types.ObjectId, user) {
     const wallet = await this.findOne(id);
+    if (!wallet.user.equals(user._id)) {
+      throw new ValidationError("You are not the owner of this wallet")
+    }   
     wallet.isActive = !wallet.isActive;
     await wallet.save();
     return wallet;
@@ -58,23 +59,35 @@ export class WalletsService {
 
   async setWalletAsDefault(id: Types.ObjectId, user) {
     const wallet = await this.findOne(id);
-    if (wallet.user.toString() !== user._id.toString()) {
-      throw new ValidationError('You are not the owner of this wallet');
-    }
+    if (!wallet.user.equals(user._id)) {
+      throw new ValidationError("You are not the owner of this wallet")
+    }   
     user.walletAddress = wallet.address
     await user.save();
     return [wallet, user];
   }
 
-  async useWallet(id: Types.ObjectId) {
+  /**
+   * utility function to update wallets to recentness
+   * @param id the wallet id
+   * @param user The user who owns the wallet
+   * @returns the wallet with the new usedAt date
+   */
+  async useWallet(id: Types.ObjectId, user) {
     const wallet = await this.findOne(id);
+    if (!wallet.user.equals(user._id)) {
+      throw new ValidationError("You are not the owner of this wallet")
+    }   
     wallet.lastUsedAt = new Date();
     await wallet.save();
     return wallet;
   }
 
-  async remove(id: Types.ObjectId) {
+  async remove(id: Types.ObjectId, user) {
     const wallet = await this.findOne(id)
+    if (!wallet.user.equals(user._id)) {
+      throw new ValidationError("You are not the owner of this wallet")
+    }
     await wallet.deleteOne()
     return wallet
   }

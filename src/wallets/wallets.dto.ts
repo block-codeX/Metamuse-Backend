@@ -18,3 +18,10 @@ export interface IWallet {
     lastUsedAt?: Date;
     isActive: boolean;
 }
+export interface ICreateWallet{
+    network: string
+    name: string;
+    address: string;
+    provider?: string;
+    user?: Types.ObjectId;
+  }

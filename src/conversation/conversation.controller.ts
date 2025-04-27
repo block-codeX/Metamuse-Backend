@@ -99,7 +99,7 @@ export class ConversationController {
   }
 
   @Get()
-  findAll(@Request() req, @Query() query: GetConversationsQuery) {
+ async findAll(@Request() req, @Query() query: GetConversationsQuery) {
     try {
       const { page = 1, limit = 100, isGroup, creator, isAdmin, name } = query;
       const filters: any = { members: { $in: [req.user._id] } };
@@ -107,7 +107,7 @@ export class ConversationController {
       if (creator) filters.creator = req.user._id;
       if (isAdmin) filters.admins = { $in: [req.user._id] };
       if (name) filters.name = { $regex: name, $options: 'i' };
-      return this.conversationService.findAll({
+      return await this.conversationService.findAll({
         filters,
         page,
         limit,
