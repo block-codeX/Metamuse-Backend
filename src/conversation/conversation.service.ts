@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { CreateMessagingDto, ICreateConversation, UpdateMessagingDto } from './conversation.dto';
+import {
+  CreateMessagingDto,
+  ICreateConversation,
+  UpdateMessagingDto,
+} from './conversation.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
 import { Conversation, Message } from './conversation.schema';
@@ -25,30 +29,30 @@ export class ConversationService {
     if (isGroup && !name) {
       throw new ValidationError('Every group must have a name');
     }
-    admins.push(creator)
-    members.push(creator)
+    admins.push(creator);
+    members.push(creator);
     if (isGroup) {
       input_data['admins'] = admins;
     }
     input_data['name'] = name;
     input_data['isGroup'] = isGroup;
     input_data['creator'] = creator;
-    input_data['members'] = members
+    input_data['members'] = members;
     return await this.conversationModel.create(input_data);
   }
 
   async converse(first: Types.ObjectId, second: Types.ObjectId) {
-    console.log("fi", first, second)
+    console.log('fi', first, second);
     const conversation = await this.conversationModel.findOne({
       members: { $all: [first, second] },
     });
     if (conversation) return conversation;
-    const conv  =  await this.create({
+    const conv = await this.create({
       creator: first,
       isGroup: false,
       members: [first, second],
     });
-    return conv
+    return conv;
   }
 
   async findAll({
@@ -56,7 +60,7 @@ export class ConversationService {
     page = 1,
     limit = 10,
     order = -1,
-    sortField = 'email',
+    sortField = 'updatedAt',
   }: {
     filters: FilterQuery<Conversation>;
     page: number;
@@ -65,16 +69,21 @@ export class ConversationService {
     sortField: string;
   }): Promise<PaginatedDocs<Conversation>> {
     const fieldsToExclude = ['-__v'];
+    const populateFields = [
+      { path: 'lastMessage', select: ['-__v'] },
+      { path: 'members', select: ['-__v', '-password', '-lastAuthChange'] },
+    ];
     return await paginate(
       this.conversationModel,
       filters,
       { page, limit, sortField, sortOrder: order },
       fieldsToExclude,
+      populateFields,
     );
   }
 
   async findOne(id: Types.ObjectId) {
-    const conversation = await this.conversationModel.findById(id)
+    const conversation = await this.conversationModel.findById(id);
     if (conversation == null) throw new NotFoundError('Conversation not found');
     return conversation;
   }
@@ -106,8 +115,8 @@ export class ConversationService {
     }
     conversation.members.push(memberId);
     await conversation.save();
-    await conversation.populate('members', '_id email firstName lastName')
-    await conversation.populate('admins', '_id email firstName lastName')
+    await conversation.populate('members', '_id email firstName lastName');
+    await conversation.populate('admins', '_id email firstName lastName');
     return conversation;
   }
   async removeMember(conversationId: Types.ObjectId, memberId: Types.ObjectId) {
@@ -116,7 +125,9 @@ export class ConversationService {
       throw new ValidationError('User is not a member of this conversation');
     }
     await this.userService.findOne(memberId);
-    conversation.members = conversation.members.filter((id) => !id.equals(memberId));
+    conversation.members = conversation.members.filter(
+      (id) => !id.equals(memberId),
+    );
     await conversation.save();
     return conversation;
   }
@@ -135,7 +146,7 @@ export class ConversationService {
       throw new ValidationError(
         'User must be a member of the conversation to be an admin',
       );
-      
+
     conversation.admins.push(adminId);
     await conversation.save();
     return conversation;
@@ -148,7 +159,9 @@ export class ConversationService {
     if (!conversation.admins.some((admin) => admin.equals(adminId))) {
       throw new ValidationError('User is not an admin of this conversation');
     }
-    conversation.admins = conversation.admins.filter((id) => !id.equals(adminId));
+    conversation.admins = conversation.admins.filter(
+      (id) => !id.equals(adminId),
+    );
     await conversation.save();
     return conversation;
   }
@@ -167,6 +180,14 @@ export class MessageService {
     const message = await this.messageModel.create(createMessagingDto);
     return message;
   }
+  // When a user reads a message
+  async markMessageAsRead(messageId: Types.ObjectId, userId: Types.ObjectId) {
+    const toggledMessage = await this.messageModel.updateOne(
+      { _id: messageId, readBy: { $ne: userId } }, // only if they haven't read it yet
+      { $push: { readBy: userId } },
+    );
+    return toggledMessage;
+  }
 
   async findAll({
     filters = {},
@@ -174,7 +195,7 @@ export class MessageService {
     limit = 10,
     order = -1,
     sortField = '-createdAt',
-    full=false
+    full = false,
   }: {
     filters: FilterQuery<Message>;
     page: number;
@@ -184,14 +205,18 @@ export class MessageService {
     sortField: string;
   }): Promise<PaginatedDocs<Message>> {
     const fieldsToExclude = ['-__v', '-isRead'];
-    const populateFields: any =  [];
-    if (full) populateFields.push({ path: 'sender', select: ['-__v', '-password', '-lastAuthChange']})
+    const populateFields: any = [];
+    if (full)
+      populateFields.push({
+        path: 'sender',
+        select: ['-__v', '-password', '-lastAuthChange'],
+      });
     return await paginate(
       this.messageModel,
       filters,
       { page, limit, sortField, sortOrder: order },
       fieldsToExclude,
-      populateFields as any
+      populateFields as any,
     );
   }
   async findOne(id: Types.ObjectId) {
@@ -203,7 +228,7 @@ export class MessageService {
   async update(id: Types.ObjectId, content: string) {
     const message = await this.findOne(id);
     if (!message) throw new NotFoundError('Message not found');
-    message.content = content;  
+    message.content = content;
     message.isEdited = true;
     await message.save();
     return message;

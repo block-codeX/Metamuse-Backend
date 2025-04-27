@@ -25,6 +25,9 @@ export class Conversation {
 
     @Prop({ type: [Types.ObjectId], ref:"User", default: []})
     admins: Types.ObjectId[];
+
+    @Prop({type: Types.ObjectId, default: null})
+    lastMessage: Types.ObjectId | null
 }
 
 @Schema()
@@ -44,8 +47,8 @@ export class Message {
     @Prop({ type: Date,  default: Date.now })
     updatedAt: Date;
 
-    @Prop({ type: Boolean, default: false})
-    isRead: boolean;
+    @Prop({ type: Array<Types.ObjectId>, default: false})
+    readBy: Types.ObjectId[];
 
     @Prop({ type: Boolean, default: false})
     isEdited: boolean;

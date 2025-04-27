@@ -11,9 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { WalletsService } from './wallets.service';
-import { CreateWalletDto } from './dto/create-wallet.dto';
-import { UpdateWalletDto } from './dto/update-wallet.dto';
-import { ICreateWallet } from './wallets.dto';
+import { ICreateWallet, INewWallet } from './wallets.dto';
 import { Types } from 'mongoose';
 import { NotFoundError, ValidationError } from '@app/utils/utils.errors';
 
@@ -25,7 +23,7 @@ export class WalletsController {
   async create(@Request() req, @Body() newWalletData: ICreateWallet) {
     try {
       newWalletData.user = req.user._id;
-      const newWallet = await this.walletsService.create(newWalletData);
+      const newWallet = await this.walletsService.create(newWalletData as INewWallet);
       return newWallet;
     } catch (error) {
       throw new BadRequestException(error.message);
