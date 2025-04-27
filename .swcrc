@@ -1,0 +1,27 @@
+{
+  "jsc": {
+    "parser": {
+      "syntax": "typescript",
+      "decorators": true,
+      "dynamicImport": true
+    },
+    "transform": {
+      "legacyDecorator": true,
+      "decoratorMetadata": true
+    },
+    "target": "es2021",
+    "paths": {
+      "@app/authentication": ["./libs/authentication/src"],
+      "@app/authentication/*": ["./libs/authentication/src/*"],
+      "@app/config": ["./libs/config/src"],
+      "@app/config/*": ["./libs/config/src/*"],
+      "@app/utils": ["./libs/utils/src"],
+      "@app/utils/*": ["./libs/utils/src/*"]
+    },
+    "baseUrl": "./"
+  },
+  "module": {
+    "type": "commonjs"
+  },
+  "sourceMaps": true
+}

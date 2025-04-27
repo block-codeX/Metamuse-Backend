@@ -12,6 +12,7 @@ import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProjectModule } from './project/project.module';
 import { YjsWebSocketGateway } from './project/yjs.gateway';
+import { WalletsModule } from './wallets/wallets.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { YjsWebSocketGateway } from './project/yjs.gateway';
     ChatModule,
     NotificationModule,
     ProjectModule,
+    WalletsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway, YjsWebSocketGateway],

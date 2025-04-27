@@ -16,7 +16,7 @@ import {
   NewProjectDto,
   newProjectSchema,
 } from './project.dto';
-import { CRDTService, FileService, ProjectService } from './project.service';
+import { ProjectService } from './project.service';
 import { NotFoundError, PaginatedQuery, ZodValidationPipe } from '@app/utils';
 import  {  encryptObjectId, decryptObjectId } from '@app/utils/utils.encrypt';
 import { FilterQuery, Types } from 'mongoose';
@@ -44,8 +44,6 @@ export class ProjectController {
     private readonly usersService: UsersService,
     private readonly otpService: OTPService,
     private readonly projectService: ProjectService,
-    private readonly crdtService: CRDTService,
-    private readonly fileService: FileService,
     private readonly emailService: EmailService,
   ) {}
   @Post('new')
@@ -130,20 +128,6 @@ export class ProjectController {
       throw new BadRequestException(error.message);
     }
   }
-  // get file
-
-  @AllowAny()
-  @Get(':projectId/reconstruct')
-  async findFile(@Request() req, @Param('projectId') projectId: string) {
-    try {
-      const tempDoc = new Y.Doc();
-      await this.crdtService.getDocument(projectId, tempDoc);
-      const fileValue = await this.fileService.returnFile(tempDoc);
-      return fileValue;
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
-  }
 
   @Post(':projectId/invite')
   async inviteCollaborator(
@@ -153,9 +137,7 @@ export class ProjectController {
   ) {
     try {
       const user = await this.usersService.findOne(null, { email: data.email });
-      const project = await this.projectService.findOne(
-        new Types.ObjectId(projectId))
-      const token = await this.otpService.newToken(project._id, user._id);
+      const [token, project] = await this.projectService.inviteCollaborator( new Types.ObjectId(projectId), user._id);
       const encoded = encryptObjectId(token._id.toString());
       this.emailService.sendMail({
             to: user.email,
@@ -175,6 +157,7 @@ export class ProjectController {
     }
   }
 
+    // join existing project
   @Post(':token/join/')
   async joinProject(        
     @Request() req,
@@ -195,12 +178,28 @@ export class ProjectController {
       throw new BadRequestException(error.message);
     }
   }
+
+  @Post(':projectId/invite-cancel')
+  async cancelCollaboratorInvite(
+    @Request() req,
+    @Param('projectId') projectId: string,
+    @Body() data: { email: string },
+  ) {  
+    try {
+      const user = await this.usersService.findOne(null, { email: data.email });
+      await this.projectService.cancelCollaborationRequest(
+        new Types.ObjectId(projectId),
+        user._id,
+      );
+      return { message: `The invitation to ${user.firstName + ' ' + user.lastName} has been canceled`  };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
   // delete project
   // get project collaborators
   // add project collaborator
   // remove project collaborator
-  // invite project collaborator
-  // join existing project
   // delete project
-  // all project snapshots ( by filters )
 }
