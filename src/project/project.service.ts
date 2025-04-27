@@ -2,17 +2,17 @@ import { ConsoleLogger, Injectable } from '@nestjs/common';
 import { ConversationService } from 'src/conversation/conversation.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, SortOrder, Types } from 'mongoose';
-import { CollaborationRequest, Project, ProjectDocument } from './project.schema';
+import {
+  CollaborationRequest,
+  Project,
+  ProjectDocument,
+} from './project.schema';
 import BaseError, {
   ForbiddenError,
   NotFoundError,
   ValidationError,
 } from '@app/utils/utils.errors';
-import {
-  CONVERSATION_MAX_MEMBERS,
-  PaginatedDocs,
-  paginate,
-} from '@app/utils';
+import { CONVERSATION_MAX_MEMBERS, PaginatedDocs, paginate } from '@app/utils';
 import { CreateProjectDto } from './project.dto';
 import { OTPService } from 'src/auth/auth.service';
 /**
@@ -25,7 +25,8 @@ export class ProjectService {
     private readonly conversationService: ConversationService,
     private readonly otpService: OTPService,
     @InjectModel(Project.name) private projectModel: Model<Project>,
-    @InjectModel(CollaborationRequest.name) private requestModel: Model<CollaborationRequest>,
+    @InjectModel(CollaborationRequest.name)
+    private requestModel: Model<CollaborationRequest>,
   ) {}
   private readonly logger = new ConsoleLogger(ProjectService.name);
 
@@ -92,28 +93,35 @@ export class ProjectService {
     );
   }
 
-  // async findAllCollaborators({
-  //   filters = {},
-  //   page = 1,
-  //   limit = 10,
-  //   order = -1,
-  //   sortField = '-createdAt',
-  // }: {
-  //   filters: FilterQuery<Project>;
-  //   page: number;
-  //   limit: number;
-  //   order: SortOrder;
-  //   sortField: string;
-  // }): Promise<PaginatedDocs<Project>> {
-  //   const fieldsToExclude = ['-__v'];
-  //   return await paginate(
-  //     this.requestModel,
-  //     filters,
-  //     { page, limit, sortField, sortOrder: order },
-  //     fieldsToExclude,
-  //     [],
-  //   );
-  // }
+  async findCollaborationRequests({
+    filters = {},
+    page = 1,
+    limit = 10,
+    order = -1,
+    sortField = '-createdAt',
+  }: {
+    filters: FilterQuery<CollaborationRequest>;
+    page: number;
+    limit: number;
+    order: SortOrder;
+    sortField: string;
+  }): Promise<PaginatedDocs<CollaborationRequest>> {
+    const fieldsToExclude = ['-__v'];
+    const populateFields = [
+      {
+        path: 'collaborator',
+        select: ['-__v', '-password', '-lastAuthChange'],
+      },
+      { oath: 'project', select: ['-__v'] },
+    ];
+    return await paginate(
+      this.requestModel,
+      filters,
+      { page, limit, sortField, sortOrder: order },
+      fieldsToExclude,
+      populateFields as any,
+    );
+  }
   async findOne(
     id?: Types.ObjectId,
     fields: any = {},
@@ -150,7 +158,10 @@ export class ProjectService {
     projectId: Types.ObjectId,
     collaboratorId: Types.ObjectId,
   ) {
-    const request = await this.requestModel.findOne({ project: projectId, collaborator: collaboratorId });
+    const request = await this.requestModel.findOne({
+      project: projectId,
+      collaborator: collaboratorId,
+    });
     if (!request) {
       throw new ValidationError('User has not been invited to this project');
     }
@@ -174,19 +185,25 @@ export class ProjectService {
     return project;
   }
 
-  async inviteCollaborator(projectId: Types.ObjectId, collaboratorId: Types.ObjectId) {
+  async inviteCollaborator(
+    projectId: Types.ObjectId,
+    collaboratorId: Types.ObjectId,
+  ) {
     const project: any = await this.findOne(projectId);
     if (project.collaborators.some((member) => member.equals(collaboratorId))) {
-      throw new ValidationError(
-        'User is already a member of this project',
-      );
+      throw new ValidationError('User is already a member of this project');
     }
     if (project.collaborators.length >= CONVERSATION_MAX_MEMBERS) {
       throw new ValidationError(
         'Project has reached the maximum number of members',
       );
     }
-    if (await this.requestModel.findOne({ project: projectId, collaborator: collaboratorId })) {
+    if (
+      await this.requestModel.findOne({
+        project: projectId,
+        collaborator: collaboratorId,
+      })
+    ) {
       throw new ValidationError(
         'User has already been invited to this project',
       );
@@ -195,17 +212,21 @@ export class ProjectService {
     await this.requestModel.create({
       project: projectId,
       collaborator: collaboratorId,
-      token
+      token,
     });
     return [token, project];
   }
 
-  async cancelCollaborationRequest(projectId: Types.ObjectId, collaboratorId: Types.ObjectId) {
+  async cancelCollaborationRequest(
+    projectId: Types.ObjectId,
+    collaboratorId: Types.ObjectId,
+  ) {
     const collaborationRequest = await this.requestModel.findOne({
       project: projectId,
       collaborator: collaboratorId,
-    })
-    if (!collaborationRequest) throw new NotFoundError('Collaboration request not found');
+    });
+    if (!collaborationRequest)
+      throw new NotFoundError('Collaboration request not found');
     await collaborationRequest.deleteOne();
     return collaborationRequest;
   }
@@ -224,4 +245,3 @@ export class ProjectService {
     await project.save();
   }
 }
-

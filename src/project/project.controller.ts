@@ -110,6 +110,19 @@ export class ProjectController {
     }
   }
 
+
+  @Get("invites/all")
+  async findAllCollaborationRequests() {
+    try {
+      const requests = await this.projectService.findCollaborationRequests(
+        {filters: {}, page: 1, limit: 150, order: -1, sortField: '-createdAt'},
+      );
+      return requests;
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+
+  }
   // get project (by id)
 
   @Get(':projectId')
