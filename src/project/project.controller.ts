@@ -112,10 +112,10 @@ export class ProjectController {
 
 
   @Get("invites/all")
-  async findAllCollaborationRequests() {
+  async findAllCollaborationRequests(@Request() req) {
     try {
       const requests = await this.projectService.findCollaborationRequests(
-        {filters: {}, page: 1, limit: 150, order: -1, sortField: '-createdAt'},
+        {filters: { collaborator: req.user._id}, page: 1, limit: 150, order: -1, sortField: '-createdAt'},
       );
       return requests;
     } catch (error) {
@@ -151,20 +151,24 @@ export class ProjectController {
     try {
       const user = await this.usersService.findOne(null, { email: data.email });
       const [token, project] = await this.projectService.inviteCollaborator( new Types.ObjectId(projectId), user._id);
-      const encoded = encryptObjectId(token._id.toString());
-      this.emailService.sendMail({
-            to: user.email,
-            subject: 'Invitation to my project',
-            template: 'project-invite',
-            context: {
-              token: encoded,
-              userName: user.firstName + ' ' + user.lastName,
-              projectName: project.title,
-              senderName: req.user.firstName + ' ' + req.user.lastName,
-              currentYear: new Date().getFullYear(),
-            },
-          });
-      return { token: encoded };
+      try {
+        await this.emailService.sendMail({
+          to: user.email,
+          subject: 'Invitation to my project',
+          template: 'project-invite',
+          context: {
+            token,
+            userName: user.firstName + ' ' + user.lastName,
+            projectName: project.title,
+            senderName: req.user.firstName + ' ' + req.user.lastName,
+            currentYear: new Date().getFullYear(),
+          },
+        });
+      } catch (error) {
+        console.error(error)
+      } finally {
+        return { token };
+      }
     } catch (error) {
       throw new BadRequestException(error.message);
     }

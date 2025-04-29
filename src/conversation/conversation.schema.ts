@@ -3,7 +3,7 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type ConversationDocument = HydratedDocument<Conversation>;
 export type MessageDocument = HydratedDocument<Message>;
-@Schema()
+@Schema({ timestamps: true})
 export class Conversation {
     @Prop({ default: ""})
     name: string;
@@ -14,11 +14,6 @@ export class Conversation {
     @Prop({ type: [Types.ObjectId], ref: 'User', required: true }) // Specify as an array
     members: Types.ObjectId[];
 
-    @Prop({ default: Date.now })
-    createdAt: Date;
-
-    @Prop({ default: Date.now })
-    updatedAt: Date;
 
     @Prop({ type: Boolean, default: false})
     isGroup: boolean;
@@ -26,7 +21,7 @@ export class Conversation {
     @Prop({ type: [Types.ObjectId], ref:"User", default: []})
     admins: Types.ObjectId[];
 
-    @Prop({type: Types.ObjectId, default: null})
+    @Prop({type: Types.ObjectId, ref: "Message", default: null})
     lastMessage: Types.ObjectId | null
 }
 
@@ -47,7 +42,7 @@ export class Message {
     @Prop({ type: Date,  default: Date.now })
     updatedAt: Date;
 
-    @Prop({ type: Array<Types.ObjectId>, default: false})
+    @Prop({ type: Array<Types.ObjectId>, ref: 'User', default: []})
     readBy: Types.ObjectId[];
 
     @Prop({ type: Boolean, default: false})

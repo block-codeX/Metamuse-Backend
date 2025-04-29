@@ -91,8 +91,9 @@ export class OTPRequired implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const otpData = request.body.otpData;
     try {
-      otpSchema.parse(otpData);
+      // otpSchema.parse(otpData);
     } catch (error) {
+      console.error(error)
       throw new UnauthorizedException("Invalid OTP data", error.errors);
     }
     if (!otpData) {

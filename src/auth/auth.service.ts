@@ -204,7 +204,6 @@ export class OTPService {
       'verificationToken',
     ]);
     sanitizedResult.otp = otp;
-    // sanitizedResult._id = result._id.toHexString()
     return sanitizedResult;
   }
 
@@ -214,7 +213,7 @@ export class OTPService {
     otp,
   }: Partial<OTPVerifyParams>): Promise<any> {
     const otpRecord = await this.otpModel.findOne({
-      _id: Types.ObjectId.createFromHexString(otpId as string),
+      _id: new Types.ObjectId(otpId as string),
       otpType,
     });
     if (!otpRecord) {
@@ -244,7 +243,7 @@ export class OTPService {
     verificationToken,
   }: Partial<OTPVerifyParams>): Promise<OTP> {
     const otpRecord = await this.otpModel.findOne({
-      _id: Types.ObjectId.createFromHexString(otpId as string),
+      _id: new Types.ObjectId(otpId as string),
       otpType,
     });
     if (!otpRecord) {

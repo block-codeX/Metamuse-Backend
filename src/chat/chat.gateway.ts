@@ -98,21 +98,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const sender = client.user._id;
       const conversation = client.roomId;
-      console.log('Conversation', conversation);
       const convo = await this.conversationService.findOne(new Types.ObjectId(conversation as string))
       const { content } = payload;
       const message = await this.messageService.create({
         conversation: new Types.ObjectId(conversation as string),
         sender,
         content,
+        readBy: [sender]
       } as CreateMessagingDto);
         // @ts-ignore
       convo.lastMessage = message._id
       await convo.save()
+
       // @ts-ignore
       await message.populate('sender', 'id firstName lastName email');
 
-      console.log('Message created', message);
       const chatRoom = this.getRoom(message);
       this.broadcastToRoom(chatRoom, 'msg:create', message);
     } catch (error) {
@@ -186,23 +186,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('msg:read')
-  async handleReadMessage(client: any, data: { id: string }): Promise<void> {
+  @SubscribeMessage('msg:readAll')
+  async handleReadMessage(client: any): Promise<void> {
     try {
-      const sender = client.user._id;
-      const msg = await this.messageService.findOne(
-        new Types.ObjectId(data.id),
-      );
-      await msg.populate('conversation');
-      // @ts-expect-error
-      if (!msg.conversation.members.some((member) => member.equals(sender))) {
-        throw new Error('You are not a member of this conversation');
-      }
-      const message = await this.messageService.markMessageAsRead(
-        msg._id,
-        sender,
-      );
-      this.broadcastToRoom(this.getRoom(msg), 'msg:read', message);
+      await this.conversationService.markAllAsSeen(
+        new Types.ObjectId(client.roomId as string),
+        client.user._id,
+      )
+      console.log('All messages marked as read');
+      client.emit('msg:readAll', "All pending messages marked as read");
     } catch (error) {
       console.error(error);
       client.emit('msg:error', error.message);

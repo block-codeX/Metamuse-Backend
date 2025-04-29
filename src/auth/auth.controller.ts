@@ -202,6 +202,7 @@ export class AuthController {
       await this.usersService.update(user._id, { password });
       return { message: 'Password reset successfully' };
     } catch (error) {
+      console.error(error)
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       if (error instanceof NotFoundError)
@@ -222,10 +223,16 @@ export class AuthController {
         body.otpType,
         body.multiUse,
       );
-      this.otpservice.sendOTP(otp, user);
-      return { message: 'OTP sent successfully' };
+      console.log(otp)
+      try {
+       await this.otpservice.sendOTP(otp, user);
+      } catch (error) {
+        console.error(error)
+      } finally {
+        const { _id: otpId, multiUse, isUsed, isVerified, userId, otpType } = otp
+        return { message: 'OTP sent successfully', otp: { otpId, multiUse, isUsed, isVerified, userId, otpType } };
+      }
     } catch (error) {
-      throw error;
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);
@@ -234,12 +241,14 @@ export class AuthController {
 
   @AllowAny()
   @Post('otp/verify')
-  @UsePipes(new ZodValidationPipe(otpSchema))
-  async verifyOTP(@Body() body: OtpRequestDto): Promise<any> {
+  // @UsePipes(new ZodValidationPipe(otpSchema))
+  async verifyOTP(@Body() body: any): Promise<any> {
     try {
+      console.log(body)
       const result = await this.otpservice.verifyOTP(body);
       return { message: 'OTP verified successfully', result };
     } catch (error) {
+      console.error(error)
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);

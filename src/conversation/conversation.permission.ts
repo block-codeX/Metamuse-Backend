@@ -18,7 +18,6 @@ export class IsConversationAdmin extends BasePermission {
 }
 export class IsConversationMember extends BasePermission {
   hasObjectPermission(request: any, resource: any, action: string): boolean {
-    console.log("Handling", resource.members, request.user._id)
     return (
       request.user &&
       resource &&

@@ -21,6 +21,7 @@ export class ConversationService {
   constructor(
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<Conversation>,
+    @InjectModel(Message.name) private readonly messageModel: Model<Message>,
     private readonly userService: UsersService,
   ) {}
   async create(data: ICreateConversation) {
@@ -61,27 +62,78 @@ export class ConversationService {
     limit = 10,
     order = -1,
     sortField = 'updatedAt',
+    currentUserId,
   }: {
     filters: FilterQuery<Conversation>;
     page: number;
     limit: number;
     order: SortOrder;
     sortField: string;
-  }): Promise<PaginatedDocs<Conversation>> {
+    currentUserId: string;
+  }): Promise<
+    PaginatedDocs<Conversation & { displayName?: string; unreadCount: number }>
+  > {
     const fieldsToExclude = ['-__v'];
     const populateFields = [
       { path: 'lastMessage', select: ['-__v'] },
       { path: 'members', select: ['-__v', '-password', '-lastAuthChange'] },
     ];
-    return await paginate(
+
+    const paginatedResult = await paginate(
       this.conversationModel,
       filters,
       { page, limit, sortField, sortOrder: order },
       fieldsToExclude,
       populateFields,
     );
-  }
 
+    const conversationIds = paginatedResult.docs.map((conv) => conv._id);
+
+    // One MongoDB aggregate to fetch unread counts
+    const unreadCounts = await this.messageModel.aggregate([
+      {
+        $match: {
+          conversation: { $in: conversationIds },
+          readBy: { $ne: new Types.ObjectId(currentUserId) },
+        },
+      },
+      {
+        $group: {
+          _id: '$conversation',
+          unreadCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Build a lookup map: { conversationId: unreadCount }
+    const unreadCountMap: Record<string, number> = {};
+    unreadCounts.forEach((item) => {
+      unreadCountMap[item._id.toString()] = item.unreadCount;
+    });
+
+    const updatedDocs = paginatedResult.docs.map((conversation) => {
+      let displayName: string | undefined = undefined;
+      if (!conversation.isGroup && conversation.members) {
+        const otherUser = conversation.members.find(
+          (m: any) => m._id.toString() !== currentUserId,
+        );
+        displayName = otherUser?.name || 'Unknown';
+      }
+
+      const unreadCount = unreadCountMap[conversation._id.toString()] || 0;
+
+      return {
+        ...conversation.toObject(),
+        displayName,
+        unreadCount,
+      };
+    });
+
+    return {
+      ...paginatedResult,
+      docs: updatedDocs,
+    };
+  }
   async findOne(id: Types.ObjectId) {
     const conversation = await this.conversationModel.findById(id);
     if (conversation == null) throw new NotFoundError('Conversation not found');
@@ -130,6 +182,13 @@ export class ConversationService {
     );
     await conversation.save();
     return conversation;
+  }
+
+  async markAllAsSeen(conversationId: Types.ObjectId, userId: Types.ObjectId) {
+    await this.messageModel.updateMany(
+      { conversation: conversationId, readBy: { $ne: userId } },
+      { $push: { readBy: userId } },
+    );
   }
   async addAdmin(conversationId: Types.ObjectId, adminId: Types.ObjectId) {
     const conversation = await this.findOne(conversationId);

@@ -15,6 +15,7 @@ import BaseError, {
 import { CONVERSATION_MAX_MEMBERS, PaginatedDocs, paginate } from '@app/utils';
 import { CreateProjectDto } from './project.dto';
 import { OTPService } from 'src/auth/auth.service';
+import { encryptObjectId } from '@app/utils/utils.encrypt';
 /**
  * File service, makes use of gridfs for now, would switch to aws or another thing while upscaling...
  */
@@ -112,8 +113,9 @@ export class ProjectService {
         path: 'collaborator',
         select: ['-__v', '-password', '-lastAuthChange'],
       },
-      { oath: 'project', select: ['-__v'] },
+      { path: 'project', select: ['-__v'] },
     ];
+
     return await paginate(
       this.requestModel,
       filters,
@@ -181,6 +183,7 @@ export class ProjectService {
       project.conversation,
       collaboratorId,
     );
+    await request.deleteOne()
     await project.save();
     return project;
   }
@@ -208,7 +211,11 @@ export class ProjectService {
         'User has already been invited to this project',
       );
     }
-    const token = await this.otpService.newToken(project._id, collaboratorId);
+    const inviteToken = await this.otpService.newToken(
+      project._id,
+      collaboratorId,
+    );
+    const token = encryptObjectId(inviteToken._id.toString());
     await this.requestModel.create({
       project: projectId,
       collaborator: collaboratorId,

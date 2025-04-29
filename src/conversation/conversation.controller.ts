@@ -112,7 +112,8 @@ export class ConversationController {
         page,
         limit,
         order: -1,
-        sortField: 'name',
+        sortField: 'updatedAt',
+        currentUserId: req.user._id,
       });
     } catch (error) {
       if (error instanceof ValidationError)
