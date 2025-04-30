@@ -9,21 +9,28 @@ import {
   BadRequestException,
   Request,
   NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import { WalletsService } from './wallets.service';
 import { ICreateWallet, INewWallet } from './wallets.dto';
 import { Types } from 'mongoose';
 import { NotFoundError, ValidationError } from '@app/utils/utils.errors';
+import { OTPRequired } from 'src/auth/auth.guard';
 
 @Controller('wallets')
 export class WalletsController {
   constructor(private readonly walletsService: WalletsService) {}
 
+  @UseGuards(OTPRequired)
   @Post()
   async create(@Request() req, @Body() newWalletData: ICreateWallet) {
     try {
       newWalletData.user = req.user._id;
-      const newWallet = await this.walletsService.create(newWalletData as INewWallet);
+      const newWallet = await this.walletsService.create(
+        newWalletData as INewWallet,
+      );
+      req.user.walletAddress = newWallet.address;
+      await req.user.save();
       return newWallet;
     } catch (error) {
       throw new BadRequestException(error.message);
@@ -92,6 +99,8 @@ export class WalletsController {
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    throw new BadRequestException("Not yet sure people should be able to remove wallets")
+    throw new BadRequestException(
+      'Not yet sure people should be able to remove wallets',
+    );
   }
 }

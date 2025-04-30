@@ -82,7 +82,10 @@ export class AuthController {
   async signup(@Body() body: SignupDto): Promise<any> {
     try {
       const user = await this.usersService.signupUser(body);
-      return { message: 'Signup successful, Proceed to verify your account', userId: user._id };
+      return {
+        message: 'Signup successful, Proceed to verify your account',
+        userId: user._id,
+      };
     } catch (error) {
       if (error instanceof IntegrityError)
         throw new ConflictException(error.message, error.name);
@@ -106,11 +109,11 @@ export class AuthController {
         if (!token) {
           res.send({ message: 'Token not provided' });
           return;
-        };
+        }
       }
       const { refreshToken, ...tokens } =
         await this.authService.refreshTokens(token);
-        res.clearCookie('refresh');
+      res.clearCookie('refresh');
       res.setCookie('refresh', refreshToken, {
         httpOnly: true,
         secure: true,
@@ -140,10 +143,10 @@ export class AuthController {
       if (!token) {
         token = refresh;
         console.log('my token', token);
-        if (!token){
+        if (!token) {
           res.send({ message: 'Successfully logged out' });
           return;
-        };
+        }
       }
       await this.authService.blacklistToken(req.token, 'access');
       await this.authService.blacklistToken(token, 'refresh');
@@ -193,7 +196,10 @@ export class AuthController {
     try {
       const email = body.email;
       const user: any = await this.usersService.findOne(null, { email });
-      if (req.otpRecord && req.otpRecord.userId != user._id) {
+      if (
+        req.otpRecord &&
+        req.otpRecord.userId.toString() != user._id.toString()
+      ) {
         throw new UnauthorizedError(
           "You're not permitted to carry this out. Request a new otp",
         );
@@ -202,7 +208,7 @@ export class AuthController {
       await this.usersService.update(user._id, { password });
       return { message: 'Password reset successfully' };
     } catch (error) {
-      console.error(error)
+      console.error(error);
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       if (error instanceof NotFoundError)
@@ -223,14 +229,24 @@ export class AuthController {
         body.otpType,
         body.multiUse,
       );
-      console.log(otp)
+      console.log(otp);
       try {
-       await this.otpservice.sendOTP(otp, user);
+        await this.otpservice.sendOTP(otp, user);
       } catch (error) {
-        console.error(error)
+        console.error(error);
       } finally {
-        const { _id: otpId, multiUse, isUsed, isVerified, userId, otpType } = otp
-        return { message: 'OTP sent successfully', otp: { otpId, multiUse, isUsed, isVerified, userId, otpType } };
+        const {
+          _id: otpId,
+          multiUse,
+          isUsed,
+          isVerified,
+          userId,
+          otpType,
+        } = otp;
+        return {
+          message: 'OTP sent successfully',
+          otp: { otpId, multiUse, isUsed, isVerified, userId, otpType },
+        };
       }
     } catch (error) {
       if (error instanceof UnauthorizedError)
@@ -244,11 +260,11 @@ export class AuthController {
   // @UsePipes(new ZodValidationPipe(otpSchema))
   async verifyOTP(@Body() body: any): Promise<any> {
     try {
-      console.log(body)
+      console.log(body);
       const result = await this.otpservice.verifyOTP(body);
       return { message: 'OTP verified successfully', result };
     } catch (error) {
-      console.error(error)
+      console.error(error);
       if (error instanceof UnauthorizedError)
         throw new UnauthorizedException(error.message);
       else throw new BadRequestException(error.message);

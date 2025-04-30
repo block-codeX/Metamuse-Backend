@@ -54,6 +54,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    
     },
   ],
   exports: [AuthService, OTPService, MongooseModule],
