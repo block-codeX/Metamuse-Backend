@@ -18,7 +18,7 @@ import {
 } from './project.dto';
 import { ProjectService } from './project.service';
 import { NotFoundError, PaginatedQuery, ZodValidationPipe } from '@app/utils';
-import  {  encryptObjectId, decryptObjectId } from '@app/utils/utils.encrypt';
+import { encryptObjectId, decryptObjectId } from '@app/utils/utils.encrypt';
 import { FilterQuery, Types } from 'mongoose';
 import { AllowAny } from 'src/auth/auth.decorator';
 import { Project } from './project.schema';
@@ -27,6 +27,7 @@ import { UsersService } from 'src/users/users.service';
 import { OTPService } from 'src/auth/auth.service';
 import BaseError from '@app/utils/utils.errors';
 import { EmailService } from 'src/notification/notification.service';
+import { User } from 'src/users/users.schema';
 interface GetProjectsQuery extends PaginatedQuery {
   creator?: string;
   isCompleted: string;
@@ -36,7 +37,12 @@ interface GetProjectsQuery extends PaginatedQuery {
   title?: string;
   full?: string;
 }
-
+interface GetUsersQuery {
+  name?: string;
+  email?: string;
+  page?: number;
+  limit?: number;
+}
 @Controller('projects')
 export class ProjectController {
   // Create project
@@ -110,18 +116,54 @@ export class ProjectController {
     }
   }
 
-
-  @Get("invites/all")
-  async findAllCollaborationRequests(@Request() req) {
+  @Get(':projectId/invites/users')
+  async getUsersEligibleForInvite(@Query() query: GetUsersQuery, @Param('projectId') projectId: string) {
     try {
-      const requests = await this.projectService.findCollaborationRequests(
-        {filters: { collaborator: req.user._id}, page: 1, limit: 150, order: -1, sortField: '-createdAt'},
+      const { name, email, page = 1, limit = 1000 } = query;
+      const project = await this.projectService.findOne(
+        new Types.ObjectId(projectId)
       );
+      const filters: FilterQuery<User> = {};
+      if (name) {
+        filters.$or = [
+          { firstName: { $regex: name, $options: 'i' } },
+          { lastName: { $regex: name, $options: 'i' } },
+        ];
+      }
+      if (email) filters.email = { $regex: email, $options: 'i' };
+      const existingCollaborators = [
+        ...(project.collaborators || [])
+      ];
+      filters._id = { $nin: existingCollaborators };
+      const users = await this.usersService.findAll({
+        filters,
+        page,
+        limit,
+        order: 1,
+        sortField: 'firstName',
+      });
+      return users;
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+  @Get('invites/all')
+  async findAllCollaborationRequests(@Request() req, @Query() query: { projectId: string }) {
+    try {
+      const { projectId } = query;
+      let filters: any = { collaborator: req.user._id };
+      if (projectId) filters = { project: new Types.ObjectId(projectId) };
+      const requests = await this.projectService.findCollaborationRequests({
+        filters,
+        page: 1,
+        limit: 150,
+        order: -1,
+        sortField: 'createdAt',
+      });
       return requests;
     } catch (error) {
       throw new BadRequestException(error.message);
     }
-
   }
   // get project (by id)
 
@@ -150,7 +192,10 @@ export class ProjectController {
   ) {
     try {
       const user = await this.usersService.findOne(null, { email: data.email });
-      const [token, project] = await this.projectService.inviteCollaborator( new Types.ObjectId(projectId), user._id);
+      const [token, project] = await this.projectService.inviteCollaborator(
+        new Types.ObjectId(projectId),
+        user._id,
+      );
       try {
         await this.emailService.sendMail({
           to: user.email,
@@ -165,7 +210,7 @@ export class ProjectController {
           },
         });
       } catch (error) {
-        console.error(error)
+        console.error(error);
       } finally {
         return { token };
       }
@@ -174,21 +219,23 @@ export class ProjectController {
     }
   }
 
-    // join existing project
+  // join existing project
   @Post(':token/join/')
-  async joinProject(        
-    @Request() req,
-    @Param('token') token: string,
-  ) {
+  async joinProject(@Request() req, @Param('token') token: string) {
     try {
       const decoded = decryptObjectId(token);
-      const { projectId, userId } = await this.otpService.getToken(new Types.ObjectId(decoded));
+      const { projectId, userId } = await this.otpService.getToken(
+        new Types.ObjectId(decoded),
+      );
       const user = await this.usersService.findOne(userId);
 
       if (!user) throw new BadRequestException('User not found');
       if (!user._id.equals(req.user._id))
         throw new BadRequestException("This token wasn't created for you");
-      const added = await this.projectService.addCollaborator(projectId, user._id);
+      const added = await this.projectService.addCollaborator(
+        projectId,
+        user._id,
+      );
       return added;
     } catch (error) {
       console.error(error);
@@ -201,14 +248,16 @@ export class ProjectController {
     @Request() req,
     @Param('projectId') projectId: string,
     @Body() data: { email: string },
-  ) {  
+  ) {
     try {
       const user = await this.usersService.findOne(null, { email: data.email });
       await this.projectService.cancelCollaborationRequest(
         new Types.ObjectId(projectId),
         user._id,
       );
-      return { message: `The invitation to ${user.firstName + ' ' + user.lastName} has been canceled`  };
+      return {
+        message: `The invitation to ${user.firstName + ' ' + user.lastName} has been canceled`,
+      };
     } catch (error) {
       throw new BadRequestException(error.message);
     }

@@ -223,6 +223,35 @@ export class ProjectService {
     });
     return [token, project];
   }
+  async findPendingInvites({
+    filters = {},
+    page = 1,
+    limit = 10,
+    order = -1,
+    sortField = '-createdAt',
+  }: {
+    filters: FilterQuery<CollaborationRequest>;
+    page: number;
+    limit: number;
+    order: SortOrder;
+    sortField: string;
+  }): Promise<PaginatedDocs<CollaborationRequest>> {
+    const fieldsToExclude = ['-__v'];
+    const populateFields = [
+      {
+        path: 'collaborator',
+        select: ['-__v', '-password', '-lastAuthChange'],
+      },
+      { path: 'project', select: ['-__v'] },
+    ];
+    return await paginate(
+      this.requestModel,
+      { ...filters, token: { $exists: true } },
+      { page, limit, sortField, sortOrder: order },
+      fieldsToExclude,
+      populateFields as any,
+    );
+  }
 
   async cancelCollaborationRequest(
     projectId: Types.ObjectId,
