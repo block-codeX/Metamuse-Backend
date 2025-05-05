@@ -43,15 +43,14 @@ export class ConversationService {
   }
 
   async converse(first: Types.ObjectId, second: Types.ObjectId) {
-    console.log('fi', first, second);
     const conversation = await this.conversationModel.findOne({
-      members: { $all: [first, second] },
+      members: { $all: [first, second] }, isGroup: false
     });
     if (conversation) return conversation;
     const conv = await this.create({
       creator: first,
       isGroup: false,
-      members: [first, second],
+      members: [second],
     });
     return conv;
   }
@@ -117,14 +116,11 @@ export class ConversationService {
         const otherUser = conversation.members.find(
           (m: any) => m._id.toString() !== currentUserId,
         );
-        displayName = otherUser?.name || 'Unknown';
+        conversation.name = `${otherUser?.firstName} ${otherUser?.lastName}` || 'Unknown';
       }
-
       const unreadCount = unreadCountMap[conversation._id.toString()] || 0;
-
       return {
         ...conversation.toObject(),
-        displayName,
         unreadCount,
       };
     });

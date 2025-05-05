@@ -10,6 +10,7 @@ import {
   BadRequestException,
   Request,
   Query,
+  HttpCode,
 } from '@nestjs/common';
 import { ConversationService, MessageService } from './conversation.service';
 import {
@@ -72,6 +73,7 @@ export class ConversationController {
     }
   }
   @Post('converse')
+  @HttpCode(200)
   async converse(@Request() req, @Body() converseDto: { second: string }) {
     try {
       const first = req.user._id;
@@ -87,6 +89,11 @@ export class ConversationController {
         second,
       );
       await conversation.populate('members', '_id firstName lastName email');
+      const otherUser = conversation.members.find(
+        (m: any) => m._id.toString() !== req.user._id,
+      );
+      const displayName = `${otherUser?.firstName} ${otherUser.lastName}` || 'Unknown';
+      conversation.name = displayName
       return conversation;
     } catch (error) {
       console.error(error);

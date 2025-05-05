@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Request,
-  ValidationPipe,
   UsePipes,
   Post,
   BadRequestException,
@@ -10,15 +9,15 @@ import {
   Query,
   Param,
   NotFoundException,
+  HttpCode,
 } from '@nestjs/common';
 import {
-  CreateProjectDto,
   NewProjectDto,
   newProjectSchema,
 } from './project.dto';
 import { ProjectService } from './project.service';
 import { NotFoundError, PaginatedQuery, ZodValidationPipe } from '@app/utils';
-import { encryptObjectId, decryptObjectId } from '@app/utils/utils.encrypt';
+import { decryptObjectId } from '@app/utils/utils.encrypt';
 import { FilterQuery, Types } from 'mongoose';
 import { AllowAny } from 'src/auth/auth.decorator';
 import { Project } from './project.schema';
@@ -243,7 +242,8 @@ export class ProjectController {
     }
   }
 
-  @Post(':projectId/invite-cancel')
+  @Post(':projectId/invites/cancel')
+  @HttpCode(200)
   async cancelCollaboratorInvite(
     @Request() req,
     @Param('projectId') projectId: string,
