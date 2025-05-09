@@ -112,7 +112,7 @@ export class ConversationService {
 
     const updatedDocs = paginatedResult.docs.map((conversation) => {
       let displayName: string | undefined = undefined;
-      if (!conversation.isGroup && conversation.members) {
+      if (!conversation.isGroup && conversation.members) {  
         const otherUser = conversation.members.find(
           (m: any) => m._id.toString() !== currentUserId,
         );

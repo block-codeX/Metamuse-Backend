@@ -37,8 +37,9 @@ interface CustomWebSocket extends WebSocket {
     };
   };
 }
-@WebSocketGateway(8001, {
+@WebSocketGateway({
   cors: { origin: '*' },
+  path: "/chats"
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
@@ -55,7 +56,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: CustomWebSocket, request: Request) {
     try {
-      const newUrl = new URL(request.url, 'http://localhost');
+      const newUrl = new URL(request.url, 'http://localhost/chats');
       const params = newUrl.searchParams;
       const token = params.get('token');
       const roomId = params.get('roomId');

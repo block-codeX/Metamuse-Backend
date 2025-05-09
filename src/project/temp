@@ -31,11 +31,9 @@ interface CommandPayload {
 
 @WebSocketGateway({
   cors: { origin: '*' },
-  path: "/yjs"
-
 })
 @Injectable()
-export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {//}, OnGatewayInit {
+export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
   private readonly logger = new ConsoleLogger(YjsWebSocketGateway.name);
   private persistence: any;
   private rooms: Map<string, Map<string, ClientInfo>> = new Map();
@@ -50,18 +48,20 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     @Inject('REDIS_CONFIG') private readonly redisConfig: any,
   ) {}
   
-  // afterInit(server: Server) {
-
-  // }
+  afterInit(server: Server) {
+    this.logger.log('YJS WebSocket Gateway initialized');
+    this.persistence = new RedisPersistence(this.redisConfig);
+    this.persistence.writeState = async () => {}; // Override writeState if needed
+    utils.setPersistence(this.persistence);
+  }
   
   async handleConnection(client: WebSocket & { docName?: string, user?: any }, request: Request) {
     try {
-      const newUrl = new URL(request.url, 'http://localhost/yjs');
+      const newUrl = new URL(request.url, 'http://localhost');
       const params = newUrl.searchParams;
       const token = params.get('token');
       const projectId = params.get('projectId');
       const isCommand = params.get('command') === 'true';
-      // const 
       
       // Simulate handshake for auth middleware
       client.handshake = { query: { token } };
@@ -80,10 +80,6 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
         this.setupCommandConnection(client, projectId);
       } else {
         // Regular YJS connection
-        this.logger.log('YJS WebSocket Gateway initialized');
-        this.persistence = new RedisPersistence(this.redisConfig);
-        this.persistence.writeState = async () => {}; // Override writeState if needed
-        utils.setPersistence(this.persistence);
         utils.setupWSConnection(client, request, {
           docName: projectId,
           gc: true,
@@ -105,6 +101,15 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
           }
         });
         
+        // Notify other clients in the room about the new user
+        this.command(client, projectId, {
+          type: 'user-joined',
+          payload: {
+            userId: client.user?.id,
+            username: client.user?.name || client.user?.email || 'Anonymous',
+            timestamp: Date.now()
+          }
+        });
       }
       
       this.logger.log(`Client connected: ${client.user?.id} to project: ${projectId}`);
@@ -120,9 +125,21 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
   handleDisconnect(client: WebSocket & { docName?: string, user?: any }) {
     const projectId = client.docName;
     const userId = client.user?.id;
+    
     if (projectId && userId) {
       // Remove client from room
-      this.removeClientFromRoom(client, projectId);     
+      this.removeClientFromRoom(client, projectId);
+      
+      // Notify other clients about the user leaving
+      this.command(client, projectId, {
+        type: 'user-left',
+        payload: {
+          userId: userId,
+          username: client.user?.name || client.user?.email || 'Anonymous',
+          timestamp: Date.now()
+        }
+      });
+      
       this.logger.log(`Client disconnected: ${userId} from project: ${projectId}`);
     }
   }
@@ -132,7 +149,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     client.on('message', (message: string) => {
       try {
         const data = JSON.parse(message);
-        console.log("messafgge", data)
+        
         if (data.type === 'command') {
           // Process the command by broadcasting it to others in the room
           this.command(client, projectId, data);

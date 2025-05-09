@@ -1,5 +1,4 @@
 import { config } from 'dotenv';
-import { Algorithm } from 'jsonwebtoken';
 
 config();
 // JWT
@@ -26,7 +25,7 @@ export const OTP_LENGTH = parseInt(process.env.OTP_LENGTH as string);
 export const DB_CONNECTION_STRING = process.env.DB_CONNECTION_STRING as string;
 export const DB_NAME = "metamuse"
 // Server
-export const PORT = parseInt(process.env.NEST_PORT as string);
+export const PORT = parseInt(process.env.PORT as string);
 
 // Conversation
 export const CONVERSATION_MAX_MEMBERS = 200;
