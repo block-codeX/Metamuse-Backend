@@ -13,7 +13,7 @@ import {
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from 'src/auth/auth.module';
 import { AuthService, OTPService } from 'src/auth/auth.service';
-import { YJS_REDIS_DB, YJS_REDIS_HOST, YJS_REDIS_PORT } from '@app/utils';
+import { YJS_REDIS_DB, YJS_REDIS_HOST, YJS_REDIS_PORT, REDIS_URL } from '@app/utils';
 import { ProjectController } from './project.controller';
 import { NotificationModule } from 'src/notification/notification.module';
 
