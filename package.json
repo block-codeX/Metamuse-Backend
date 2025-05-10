@@ -8,6 +8,7 @@
   "scripts": {
     "build": "swc src -d dist && swc libs -d dist/libs && npm run copy-types",
     "prebuild": "rimraf dist",
+    "heroku-postbuild": "pnpm run build",
     "start": "node dist/main",
     "start:dev": "nodemon --exec node -r @swc-node/register src/main.ts",
     "copy-types": "cp -r types dist/",
