@@ -3,13 +3,11 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  OnGatewayInit,
 } from '@nestjs/websockets';
 import { functionAuth } from 'src/auth/auth.middleware';
 import { AuthService } from 'src/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
-import { Socket } from 'socket.io';
 import { ConsoleLogger, Inject, Injectable } from '@nestjs/common';
 import { Server, WebSocket } from 'ws';
 // @ts-ignore
@@ -54,7 +52,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
-    @Inject('REDIS_CONFIG') private readonly redisConfig: any,
+    @Inject('YJS_REDIS_URL') private readonly redisConfig: any,
   ) {}
   
   // afterInit(server: Server) {

@@ -44,9 +44,13 @@ const redisConfig = {
       provide: 'REDIS_CONFIG', // Use a token to identify the provider
       useValue: redisConfig, // Provide the Redis configuration
       scope: Scope.DEFAULT, // Default scope
-    },
+    }, {
+      provide: 'YJS_REDIS_URL',
+      useValue: REDIS_URL,
+      scope: Scope.DEFAULT,
+    }
   ],
-  exports: [ProjectService, 'REDIS_CONFIG'],
+  exports: [ProjectService, 'REDIS_CONFIG', 'YJS_REDIS_URL'],
   controllers: [ProjectController],
 })
 export class ProjectModule {}
