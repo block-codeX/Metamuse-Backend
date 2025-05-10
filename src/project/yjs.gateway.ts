@@ -3,25 +3,30 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  OnGatewayInit,
 } from '@nestjs/websockets';
 import { functionAuth } from 'src/auth/auth.middleware';
 import { AuthService } from 'src/auth/auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/users/users.service';
-import { Socket } from 'socket.io';
 import { ConsoleLogger, Inject, Injectable } from '@nestjs/common';
 import { Server, WebSocket } from 'ws';
 // @ts-ignore
 import * as utils from 'y-websocket/bin/utils';
 import { RedisPersistence } from 'y-redis';
+import { CORS_ALLOWED } from '@app/utils';
 
+interface CustomWebsocket extends WebSocket {
+  handshake: any
+  query: any
+  docName: any
+}
 interface ClientInfo {
-  client: WebSocket;
+  client: CustomWebsocket;
   userId: string;
   projectId: string;
   user: any; // Add user object for additional user data if needed
 }
+
 
 interface CommandPayload {
   type: string;
@@ -30,7 +35,7 @@ interface CommandPayload {
 }
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: { origin: CORS_ALLOWED },
   path: "/yjs"
 
 })
@@ -47,14 +52,14 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
-    @Inject('REDIS_CONFIG') private readonly redisConfig: any,
+    @Inject('YJS_REDIS_URL') private readonly redisConfig: any,
   ) {}
   
   // afterInit(server: Server) {
 
   // }
   
-  async handleConnection(client: WebSocket & { docName?: string, user?: any }, request: Request) {
+  async handleConnection(client: CustomWebsocket & { docName?: string, user?: any }, request: Request) {
     try {
       const newUrl = new URL(request.url, 'http://localhost/yjs');
       const params = newUrl.searchParams;
@@ -77,7 +82,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
       
       // If this is a command connection, set up for commands rather than YJS sync
       if (isCommand) {
-        this.setupCommandConnection(client, projectId);
+        this.setupCommandConnection(client, (projectId as string));
       } else {
         // Regular YJS connection
         this.logger.log('YJS WebSocket Gateway initialized');
@@ -91,7 +96,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
       }
       
       // Add client to room
-      this.addClientToRoom(client, projectId);
+      this.addClientToRoom(client, (projectId as string));
       
       // Send connection acknowledgment for command clients
       if (isCommand) {
@@ -146,7 +151,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
   /**
    * Add a client to a room
    */
-  private addClientToRoom(client: WebSocket & { user?: any }, projectId: string) {
+  private addClientToRoom(client: CustomWebsocket & { user?: any }, projectId: string) {
     if (!this.rooms.has(projectId)) {
       this.rooms.set(projectId, new Map());
     }
@@ -154,7 +159,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     const room = this.rooms.get(projectId);
     const userId = client.user?.id;
     
-    if (userId) {
+    if (userId && room) {
       room.set(userId, { 
         client, 
         userId, 
@@ -257,7 +262,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
   getAllRooms() {
     return Array.from(this.rooms.keys()).map(projectId => ({
       projectId,
-      clientCount: this.rooms.get(projectId).size
+      clientCount: this.rooms.get(projectId)?.size
     }));
   }
 }

@@ -4,6 +4,7 @@ config();
 // JWT
 export const COOKIE_SECRET = process.env.COOKIE_SECRET as string;
 export const CORS_ALLOWED = (process.env.CORS_ALLOWED as string).split(' ');
+export const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS as string).split(' ')
 export const JWT_SIGNING_KEY = process.env.JWT_SIGNING_KEY as string;
 export const JWT_VERIFYING_KEY = process.env.JWT_VERIFYING_KEY as string;
 export const JWT_ACCESS_TOKEN_EXPIRATION = parseInt(
