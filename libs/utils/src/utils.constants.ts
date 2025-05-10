@@ -51,7 +51,7 @@ export const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME as string;
 export const FRONTEND_URL = process.env.FRONTEND_URL as string;
 
 // CRDT Layer
-export const REDIS_URL = process.env.REDIS_URL as string;
+export const REDIS_URL = process.env.AH_REDIS_STACKHERO_BLACK_URL_TLS as string;
 export const YJS_REDIS_HOST = process.env.YJS_REDIS_HOST as string;
 export const YJS_REDIS_PORT = parseInt(process.env.YJS_REDIS_PORT as string);
 export const YJS_REDIS_DB = parseInt(process.env.YJS_REDIS_DB as string);
