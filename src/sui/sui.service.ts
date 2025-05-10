@@ -9,6 +9,7 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import { SUI_CONTRACT_ADDRESS, SUI_PRIVATE_KEY, SUI_RPC_URL } from '@app/utils';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class SuiService {
@@ -16,7 +17,7 @@ export class SuiService {
   private keypair: Ed25519Keypair;
   private contractAddress: string;
 
-  constructor() {
+  constructor(private readonly userService: UsersService) {
     const rpcUrl = SUI_RPC_URL;
     this.client = new SuiClient({
       transport: new SuiHTTPTransport({
