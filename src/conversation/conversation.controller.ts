@@ -10,6 +10,7 @@ import {
   BadRequestException,
   Request,
   Query,
+  HttpCode,
 } from '@nestjs/common';
 import { ConversationService, MessageService } from './conversation.service';
 import {
@@ -30,6 +31,7 @@ import { AuthService } from 'src/auth/auth.service';
 import { AllowAny } from 'src/auth/auth.decorator';
 
 interface GetMessagesQuery extends PaginatedQuery {
+  full: string;
   text?: string;
 }
 interface GetConversationsQuery extends PaginatedQuery {
@@ -71,6 +73,7 @@ export class ConversationController {
     }
   }
   @Post('converse')
+  @HttpCode(200)
   async converse(@Request() req, @Body() converseDto: { second: string }) {
     try {
       const first = req.user._id;
@@ -86,6 +89,11 @@ export class ConversationController {
         second,
       );
       await conversation.populate('members', '_id firstName lastName email');
+      const otherUser = conversation.members.find(
+        (m: any) => m._id.toString() !== req.user._id,
+      );
+      const displayName = `${otherUser?.firstName} ${otherUser.lastName}` || 'Unknown';
+      conversation.name = displayName
       return conversation;
     } catch (error) {
       console.error(error);
@@ -98,7 +106,7 @@ export class ConversationController {
   }
 
   @Get()
-  findAll(@Request() req, @Query() query: GetConversationsQuery) {
+ async findAll(@Request() req, @Query() query: GetConversationsQuery) {
     try {
       const { page = 1, limit = 100, isGroup, creator, isAdmin, name } = query;
       const filters: any = { members: { $in: [req.user._id] } };
@@ -106,12 +114,13 @@ export class ConversationController {
       if (creator) filters.creator = req.user._id;
       if (isAdmin) filters.admins = { $in: [req.user._id] };
       if (name) filters.name = { $regex: name, $options: 'i' };
-      return this.conversationService.findAll({
+      return await this.conversationService.findAll({
         filters,
         page,
         limit,
         order: -1,
-        sortField: 'name',
+        sortField: 'updatedAt',
+        currentUserId: req.user._id,
       });
     } catch (error) {
       if (error instanceof ValidationError)
@@ -125,7 +134,7 @@ export class ConversationController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {
-      const conversationId = Types.ObjectId.createFromHexString(id);
+      const conversationId = new Types.ObjectId(id);
       const conversation =
         await this.conversationService.findOne(conversationId);
       await conversation.populate('members', '_id email firstName lastName');
@@ -267,6 +276,7 @@ export class ConversationController {
       if (query.text) filters.content = { $regex: query.text, $options: 'i' };
       const { page = 1, limit = 1000 } = query;
       const messages = await this.messageService.findAll({
+        full: query?.full == 'true',
         filters,
         page,
         limit,

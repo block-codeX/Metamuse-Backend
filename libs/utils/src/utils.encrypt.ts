@@ -1,5 +1,7 @@
 import * as bcrypt from 'bcryptjs'
 import crypto from 'crypto'
+import Hashids = require('hashids')
+import { CRYPTO_SECRET } from './utils.constants'
 /**
  * Encrypts a password using bcrypt.
  *
@@ -38,7 +40,17 @@ export function verifyPassword (password: string, hash: string) {
 export function generateSecret (length = 16) {
   return crypto.randomBytes(length).toString('hex')
 }
+const hashids = new Hashids(CRYPTO_SECRET, 12); 
+export function encryptObjectId(objectId) {
+  return hashids.encodeHex(objectId);
+}
+
+export function decryptObjectId(shortId) {
+  return hashids.decodeHex(shortId);
+}
+
+
 
 export default {
-  encryptPassword, verifyPassword, generateSecret
+  encryptPassword, verifyPassword, generateSecret, encryptObjectId, decryptObjectId
 }

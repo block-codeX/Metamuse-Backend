@@ -1,5 +1,4 @@
 
-import exp from 'constants';
 import { z } from 'zod';
 
 export const signupSchema = z
@@ -22,7 +21,6 @@ export const logoutSchema = z
     .object({
         token: z.string(),
     })
-    .required();
 
     export const otpSchema = z
     .object({

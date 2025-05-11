@@ -1,8 +1,10 @@
 import { config } from 'dotenv';
-import { Algorithm } from 'jsonwebtoken';
 
 config();
 // JWT
+export const COOKIE_SECRET = process.env.COOKIE_SECRET as string;
+export const CORS_ALLOWED = (process.env.CORS_ALLOWED as string).split(' ');
+export const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS as string).split(' ')
 export const JWT_SIGNING_KEY = process.env.JWT_SIGNING_KEY as string;
 export const JWT_VERIFYING_KEY = process.env.JWT_VERIFYING_KEY as string;
 export const JWT_ACCESS_TOKEN_EXPIRATION = parseInt(
@@ -22,9 +24,9 @@ export const OTP_EXPIRATION = parseInt(process.env.OTP_EXPIRATION as string);
 export const OTP_LENGTH = parseInt(process.env.OTP_LENGTH as string);
 // Database
 export const DB_CONNECTION_STRING = process.env.DB_CONNECTION_STRING as string;
-
+export const DB_NAME = "metamuse"
 // Server
-export const PORT = parseInt(process.env.NEST_PORT as string);
+export const PORT = parseInt(process.env.PORT as string);
 
 // Conversation
 export const CONVERSATION_MAX_MEMBERS = 200;
@@ -47,3 +49,15 @@ export const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME as string;
 
 // Frontend
 export const FRONTEND_URL = process.env.FRONTEND_URL as string;
+
+// CRDT Layer
+export const REDIS_URL = process.env.AH_REDIS_STACKHERO_BLACK_URL_TLS as string;
+export const YJS_REDIS_HOST = process.env.YJS_REDIS_HOST as string;
+export const YJS_REDIS_PORT = parseInt(process.env.YJS_REDIS_PORT as string);
+export const YJS_REDIS_DB = parseInt(process.env.YJS_REDIS_DB as string);
+
+// CRYPTO
+export const CRYPTO_SECRET = process.env.CRYPTO_SECRET as string;
+
+// blockchain
+// export const SUI_CONTRACT_ADDRESS = process.env.SUI_CONTRACT_ADDRESS as string;

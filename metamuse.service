@@ -1,0 +1,17 @@
+[Unit]
+Description=Metamuse Backend Service
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/Metamuse-Backend
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=metamuse-backend
+
+[Install]
+WantedBy=multi-user.target

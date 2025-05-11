@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { BlacklistAccess, BlacklistRefresh, OTP } from './auth.schema';
+import { BlacklistAccess, BlacklistRefresh, OTP, Token } from './auth.schema';
 import {
   ForbiddenError,
   FRONTEND_URL,
@@ -172,6 +172,7 @@ export class AuthService {
       await this.blacklistToken(oldRefreshToken, 'refresh');
       return newTokens;
     } catch (error) {
+      console.error(error)
       throw new UnauthorizedError('Invalid token');
     }
   }
@@ -181,6 +182,7 @@ export class AuthService {
 export class OTPService {
   constructor(
     @InjectModel(OTP.name) private otpModel: Model<OTP>,
+    @InjectModel(Token.name) private tokenModel: Model<Token>,
     private emailService: EmailService,
   ) {}
   private generateOTP(): string {
@@ -202,7 +204,6 @@ export class OTPService {
       'verificationToken',
     ]);
     sanitizedResult.otp = otp;
-    // sanitizedResult._id = result._id.toHexString()
     return sanitizedResult;
   }
 
@@ -212,7 +213,7 @@ export class OTPService {
     otp,
   }: Partial<OTPVerifyParams>): Promise<any> {
     const otpRecord = await this.otpModel.findOne({
-      _id: Types.ObjectId.createFromHexString(otpId as string),
+      _id: new Types.ObjectId(otpId as string),
       otpType,
     });
     if (!otpRecord) {
@@ -242,7 +243,7 @@ export class OTPService {
     verificationToken,
   }: Partial<OTPVerifyParams>): Promise<OTP> {
     const otpRecord = await this.otpModel.findOne({
-      _id: Types.ObjectId.createFromHexString(otpId as string),
+      _id: new Types.ObjectId(otpId as string),
       otpType,
     });
     if (!otpRecord) {
@@ -271,10 +272,21 @@ export class OTPService {
       template: 'otp-email',
       context: {
         otp: otp.otp,
-        verificationLink: `${FRONTEND_URL}/verify/${otp._id.toHexString()}?type=${otp.otpType}`,
+        verificationLink: `${FRONTEND_URL}/auth/verify?id=${otp._id.toHexString()}&type=${otp.otpType}`,
         userName: user.firstName, // Simple way to get a username from email
         currentYear: new Date().getFullYear(),
       },
     });
+  }
+
+  async newToken(projectId, userId) {
+    const token = await this.tokenModel.create({ projectId, userId });
+    return token;
+  }
+
+  async getToken(id: Types.ObjectId): Promise<Token> {
+    const token = await this.tokenModel.findOne({ _id: id });
+    if (!token) throw new NotFoundError("Token not found");
+    return token;
   }
 }

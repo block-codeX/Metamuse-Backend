@@ -10,6 +10,9 @@ import { ConversationModule } from './conversation/conversation.module';
 import { ChatGateway } from './chat/chat.gateway';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
+import { ProjectModule } from './project/project.module';
+import { YjsWebSocketGateway } from './project/yjs.gateway';
+import { WalletsModule } from './wallets/wallets.module';
 
 @Module({
   imports: [
@@ -23,8 +26,10 @@ import { NotificationModule } from './notification/notification.module';
     ConversationModule,
     ChatModule,
     NotificationModule,
+    ProjectModule,
+    WalletsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ChatGateway],
+  providers: [AppService, ChatGateway, YjsWebSocketGateway],
 })
 export class AppModule {}
