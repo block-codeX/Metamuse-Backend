@@ -52,7 +52,10 @@ export const FRONTEND_URL = process.env.FRONTEND_URL as string;
 
 // CRDT Layer
 export const REDIS_URL = process.env.AH_REDIS_STACKHERO_BLACK_URL_TLS as string;
-
+export const YJS_HOST = process.env.AH_REDIS_STACKHERO_BLACK_HOST as string;
+export const YJS_PORT = process.env.AH_REDIS_STACKHERO_BLACK_PORT_TLS as string;
+export const YJS_USERNAME = process.env.AH_REDIS_STACKHERO_BLACK_USER as string;
+export const YJS_PASSWORD = process.env.AH_REDIS_STACKHERO_BLACK_PASSWORD as string;
 // CRYPTO
 export const CRYPTO_SECRET = process.env.CRYPTO_SECRET as string;
 

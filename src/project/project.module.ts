@@ -13,12 +13,15 @@ import {
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from 'src/auth/auth.module';
 import { AuthService, OTPService } from 'src/auth/auth.service';
-import { REDIS_URL } from '@app/utils';
+import { YJS_HOST, YJS_PORT, YJS_USERNAME, YJS_PASSWORD  } from '@app/utils';
 import { ProjectController } from './project.controller';
 import { NotificationModule } from 'src/notification/notification.module';
 
 const redisConfig = {
-  host: REDIS_URL,
+  host: YJS_HOST,
+  port: YJS_PORT,
+  username: YJS_USERNAME,
+  password: YJS_PASSWORD,
   tls: {
     rejectUnauthorized: false,}
 };
@@ -44,13 +47,9 @@ const redisConfig = {
       provide: 'REDIS_CONFIG', // Use a token to identify the provider
       useValue: redisConfig, // Provide the Redis configuration
       scope: Scope.DEFAULT, // Default scope
-    }, {
-      provide: 'YJS_REDIS_URL',
-      useValue: REDIS_URL,
-      scope: Scope.DEFAULT,
     }
   ],
-  exports: [ProjectService, 'REDIS_CONFIG', 'YJS_REDIS_URL'],
+  exports: [ProjectService, 'REDIS_CONFIG'],
   controllers: [ProjectController],
 })
 export class ProjectModule {}

@@ -13,7 +13,8 @@ import { Server, WebSocket } from 'ws';
 // @ts-ignore
 import * as utils from 'y-websocket/bin/utils';
 import { RedisPersistence } from 'y-redis';
-import { CORS_ALLOWED } from '@app/utils';
+import { CORS_ALLOWED, REDIS_URL } from '@app/utils';
+import { Redis } from 'ioredis';
 
 interface CustomWebsocket extends WebSocket {
   handshake: any
@@ -86,7 +87,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
       } else {
         // Regular YJS connection
         this.logger.log('YJS WebSocket Gateway initialized');
-        this.persistence = new RedisPersistence({redisOpts: this.redisConfig});
+        this.persistence = new RedisPersistence({ redisOpts: this.redisConfig });
         this.persistence.writeState = async () => {}; // Override writeState if needed
         utils.setPersistence(this.persistence);
         utils.setupWSConnection(client, request, {
