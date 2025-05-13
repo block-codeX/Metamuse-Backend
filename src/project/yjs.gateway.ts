@@ -52,7 +52,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly authService: AuthService,
-    @Inject('YJS_REDIS_URL') private readonly redisConfig: any,
+    @Inject('REDIS_CONFIG') private readonly redisConfig: any,
   ) {}
   
   // afterInit(server: Server) {
@@ -86,7 +86,7 @@ export class YjsWebSocketGateway implements OnGatewayConnection, OnGatewayDiscon
       } else {
         // Regular YJS connection
         this.logger.log('YJS WebSocket Gateway initialized');
-        this.persistence = new RedisPersistence(this.redisConfig);
+        this.persistence = new RedisPersistence({redisOpts: this.redisConfig});
         this.persistence.writeState = async () => {}; // Override writeState if needed
         utils.setPersistence(this.persistence);
         utils.setupWSConnection(client, request, {

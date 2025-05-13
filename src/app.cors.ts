@@ -1,4 +1,4 @@
-import { CORS_ALLOWED } from '../libs/utils/src/utils.constants';
+import { CORS_ALLOWED, REDIS_URL } from '../libs/utils/src/utils.constants';
 import { config } from 'dotenv';
 import { FastifyCorsOptions } from '@fastify/cors';
 config()
